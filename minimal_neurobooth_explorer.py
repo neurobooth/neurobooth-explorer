@@ -1,4 +1,4 @@
-from neurobooth_terra import list_tables, Table
+from neurobooth_terra import Table
 
 import psycopg2
 from sshtunnel import SSHTunnelForwarder
@@ -8,7 +8,6 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 from dash import callback_context
-import plotly.graph_objects as go
 import dash_table
 
 import numpy as np
@@ -16,20 +15,20 @@ import pandas as pd
 
 from os import walk
 from os.path import join
-import h5py
 
 # --- Setting db access args --- #
 ssh_args = dict(
-        ssh_address_or_host='neurodoor.nmr.mgh.harvard.edu',
-        ssh_username='sp1022',
-        host_pkey_directories='C:\\Users\\siddh\\.ssh',
-        remote_bind_address=('192.168.100.1', 5432),
-        local_bind_address=('localhost', 6543),
+        ssh_address_or_host='XXXX',
+        ssh_username='YYYY',
+        # host_pkey_directories='C:\\Users\\siddh\\.ssh',
+        ssh_pkey="~/.ssh/id_rsa",
+        remote_bind_address=('000.000.000.000', 0000),
+        local_bind_address=('localhost', 0000),
         allow_agent=False
 )
 
 db_args = dict(
-    database='neurobooth', user='neurovisualizer', password='edwardtufte',
+    database='xxxx', user='xxxx', password='xxxx',
     # host='localhost'
 )
 
@@ -150,4 +149,5 @@ def update_table(subid_value, date_value, clinical_value):
     
     return data, columns
 
-app.run_server(debug=True)
+if __name__ == '__main__':
+    app.run_server(host='0.0.0.0', port='8050', debug=True)
