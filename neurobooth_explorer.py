@@ -1,5 +1,4 @@
 import neurobooth_terra
-#from neurobooth_terra import list_tables, Table
 
 import psycopg2
 from sshtunnel import SSHTunnelForwarder
@@ -32,7 +31,7 @@ def calculate_age(dob):
     return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
 
 
-# --- Function to extract file list from dataframe --- #
+# --- Function to extract all file list from dataframe --- #
 def get_file_list(fdf):
     file_list=[]
     for file_array in fdf.file_names:
@@ -140,6 +139,51 @@ def parse_files(task_files):
                             )
                     timeseries_data.append(trace4)
                     #print(trace4)
+
+                    #try:
+                    mdata = read_hdf5(fname)['marker']
+                    print(mdata.keys())
+                    
+                    ts_ix = []
+                    x_coord = []
+                    y_coord = []
+                    for ix, txt in enumerate(mdata['time_series']):
+                        if '!V TARGET_POS' in txt[0]:
+                            ts_ix.append(ix)
+                            l = txt[0].split(' ')
+                            x_coord.append(int(l[3][:-1]))
+                            y_coord.append(int(l[4]))
+
+                    ctrl_ts = []
+                    for ix in ts_ix:
+                        ctrl_ts.append(mdata['time_stamps'][ix])
+                        
+                    target_pos_df = pd.DataFrame()
+                    target_pos_df['ctrl_ts'] = ctrl_ts
+                    target_pos_df['x_pos'] = x_coord
+                    target_pos_df['y_pos'] = y_coord
+                    #print(target_pos_df.head(n=2))
+                    target_datetime = [datetime.fromtimestamp(timestamp) for timestamp in target_pos_df.ctrl_ts]
+
+                    target_x_trace = go.Scatter(
+                                x=target_datetime,
+                                y=(target_pos_df['x_pos']),
+                                name='Target X',
+                                mode='lines',
+                                visible='legendonly',
+                            )
+                    timeseries_data.append(target_x_trace)
+
+                    target_y_trace = go.Scatter(
+                                x=target_datetime,
+                                y=(target_pos_df['y_pos']),
+                                name='Target Y',
+                                mode='lines',
+                                visible='legendonly',
+                            )
+                    timeseries_data.append(target_y_trace)
+                    # except:
+                    #     pass
 
                     #print(timeseries_data)
                 except:
