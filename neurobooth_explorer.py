@@ -58,6 +58,10 @@ def get_task_session_files(fdf):
 
 
 # --- Function to parse task session files and return traces --- #
+
+### setting file location ###
+file_loc = '/home/sid/data'
+
 def parse_files(task_files):
 
     timeseries_data=[]
@@ -94,7 +98,7 @@ def parse_files(task_files):
         for file in task_files:
             if 'Eyelink' in file:
                 try:
-                    fname = glob.glob(op.join('data', file))[0]
+                    fname = glob.glob(op.join(file_loc, file))[0]
                     fdata = read_hdf5(fname)['device_data']
 
                     et_df = pd.DataFrame(fdata['time_series'][:, [0,1,3,4]], columns=['R_gaze_x','R_gaze_y','L_gaze_x','L_gaze_y'])
@@ -197,7 +201,7 @@ def parse_files(task_files):
 
             if 'Mouse' in  file:
                 try:
-                    fname = glob.glob(op.join('data', file))[0]
+                    fname = glob.glob(op.join(file_loc, file))[0]
                     fdata = read_hdf5(fname)['device_data']
 
                     mouse_df = pd.DataFrame(fdata['time_series'][:,:], columns=['mouse_x','mouse_y','clicks'])
@@ -234,7 +238,7 @@ def parse_files(task_files):
 
             if 'Mic' in file:
                 try:
-                    fname = glob.glob(op.join('data', file))[0]
+                    fname = glob.glob(op.join(file_loc, file))[0]
                     fdata = read_hdf5(fname)['device_data']
 
                     audio_tstmp = fdata['time_stamps']
@@ -322,7 +326,7 @@ def parse_files(task_files):
 
             if 'Mbient_RH' in file:
                 try:
-                    fname = glob.glob(op.join('data', file))[0]
+                    fname = glob.glob(op.join(file_loc, file))[0]
                     fdata = read_hdf5(fname)['device_data']
 
                     imu_df = pd.DataFrame(fdata['time_series'][:,[1,2,3,4,5,6]], columns=['acc_x','acc_y','acc_z','gyr_x','gyr_y','gyr_z'])
@@ -404,16 +408,17 @@ def parse_files(task_files):
 
 # --- Setting db access args --- #
 ssh_args = dict(
-        ssh_address_or_host='neurodoor.nmr.mgh.harvard.edu',
-        ssh_username='sp1022',
-        host_pkey_directories='C:\\Users\\siddh\\.ssh',
-        remote_bind_address=('192.168.100.1', 5432),
-        local_bind_address=('localhost', 6543),
+        ssh_address_or_host='XXXX',
+        ssh_username='YYYY',
+        # host_pkey_directories='C:\\Users\\siddh\\.ssh',
+        ssh_pkey="~/.ssh/id_rsa",
+        remote_bind_address=('000.000.000.000', 0000),
+        local_bind_address=('localhost', 0000),
         allow_agent=False
 )
 
 db_args = dict(
-    database='neurobooth', user='neurovisualizer', password='edwardtufte',
+    database='xxxx', user='xxxx', password='xxxx',
     # host='localhost'
 )
 
@@ -454,8 +459,8 @@ clinical_list = ['Ataxia-Telangiectasia','Spino Cerebellar Ataxia', 'Parkinsonis
 
 
 # --- Reading face landmark file --- #
-#face_landmark_filename = 'C:\\Users\\siddh\\Desktop\\repos\\neurobooth-terra\\workspace\\data\\100001_2022-02-18_17h-45m-35s_mouse_obs_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
-face_landmark_filename = 'C:\\Users\\siddh\\Desktop\\lab_projects\\Neurobooth_Explorer\\data\\100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
+# face_landmark_filename = '/home/sid/Desktop/repos/neurobooth-explorer/facial_landmark_file/100001_2022-02-18_17h-45m-35s_mouse_obs_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
+face_landmark_filename = '/home/sid/Desktop/repos/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
 face_landmark_data = read_hdf5(face_landmark_filename)['device_data']
 face_landmark_timestamps = face_landmark_data['time_stamps']
 face_landmark_points = face_landmark_data['time_series']
@@ -534,7 +539,10 @@ app.layout = html.Div([
                         html.Hr(),
                         html.H3('Explore Time Series', style={'textAlign':'center'}),
                         html.Div([
-                                dcc.Markdown('''* Click legend to toggle visibility''',style={'padding-left':'8%'}),
+                                dcc.Markdown('''
+                                * Click legend to toggle trace visibility
+                                * Double click any legend to toggle all traces
+                                ''',style={'padding-left':'8%'}),
                                 dcc.Graph(id="timeseries_graph")
                                 ]),
                         html.Hr(),
@@ -755,4 +763,5 @@ def update_face_landmark_frame(selected_frame, specgram_fig):
     return [face_frame_fig, specgram_fig]
 
 
-app.run_server(debug=True)
+if __name__ == '__main__':
+    app.run_server(host='0.0.0.0', port='8050', debug=True)
