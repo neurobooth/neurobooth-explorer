@@ -3,6 +3,8 @@ from neurobooth_terra import Table
 import psycopg2
 from sshtunnel import SSHTunnelForwarder
 
+import configparser
+
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
@@ -16,21 +18,68 @@ import pandas as pd
 from os import walk
 from os.path import join
 
-# --- Setting db access args --- #
+###########################################
+### Comment out section depending on os ###
+###########################################
+
+### WINDOWS Legion ###
+
+# --- ssh, db cred, variable assignment for Windows 11 on Legion --- #
+config_file_loc = 'C:\\Users\\siddh\\.db_secrets\\db_secrets.txt'
+config = configparser.ConfigParser()
+config.read(config_file_loc)
+
+# Setting db access args #
 ssh_args = dict(
-        ssh_address_or_host='XXXX',
-        ssh_username='YYYY',
-        # host_pkey_directories='C:\\Users\\siddh\\.ssh',
-        ssh_pkey="~/.ssh/id_rsa",
-        remote_bind_address=('000.000.000.000', 0000),
-        local_bind_address=('localhost', 0000),
+        ssh_address_or_host=config['windows']['ssh_address_or_host'],
+        ssh_username=config['windows']['ssh_username'],
+        host_pkey_directories=config['windows']['host_pkey_directories'],
+        remote_bind_address=(config['windows']['remote_bind_address'], int(config['windows']['remote_bind_address_port'])),
+        local_bind_address=(config['windows']['local_bind_address'], int(config['windows']['local_bind_address_port'])),
         allow_agent=False
 )
 
 db_args = dict(
-    database='xxxx', user='xxxx', password='xxxx',
+    database=config['windows']['database'], user=config['windows']['user'], password=config['windows']['password'],
     # host='localhost'
 )
+
+
+# ### LINUX P620 ###
+
+# # --- ssh, db cred, variable assignment for Ubuntu on P620 Workstation --- #
+# config_file_loc = '~/.db_secrets/db_secrets.txt'
+# config = configparser.ConfigParser()
+# config.read(config_file_loc)
+
+# # Setting db access args #
+# ssh_args = dict(
+#         ssh_address_or_host=config['linux']['ssh_address_or_host'],
+#         ssh_username=config['linux']['ssh_username'],
+#         ssh_pkey=config['linux']['ssh_pkey'],
+#         remote_bind_address=(config['linux']['remote_bind_address'], int(config['linux']['remote_bind_address_port'])),
+#         local_bind_address=(config['linux']['local_bind_address'], int(config['linux']['local_bind_address_port'])),
+#         allow_agent=False
+# )
+
+# db_args = dict(
+#     database=config['linux']['database'], user=config['linux']['user'], password=config['linux']['password'],
+#     # host='localhost'
+# )
+
+
+# ### Control Machine ###
+
+# # --- ssh, db cred, variable assignment for Control @ Neurobooth --- #
+# from neurobooth_os.secrets_info import secrets
+# host = secrets['database']['host']
+# port = 5432
+# conn = psycopg2.connect(database=database, 
+#                         user=secrets['database']['user'],
+#                         password=secrets['database']['pass'],
+#                         host=host,
+#                         port=port)
+
 
 # --- Accessing subject_ids --- #
 with SSHTunnelForwarder(**ssh_args) as tunnel:

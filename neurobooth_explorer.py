@@ -3,6 +3,8 @@ import neurobooth_terra
 import psycopg2
 from sshtunnel import SSHTunnelForwarder
 
+import configparser
+
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
@@ -25,10 +27,118 @@ from datetime import date
 from scipy import signal
 
 
+###########################################
+### Comment out section depending on os ###
+###########################################
+
+### WINDOWS Legion ###
+
+# --- ssh, db cred, variable assignment for Windows 11 on Legion --- #
+
+### setting data file locations ###
+file_loc = 'C:\\Users\\siddh\\Desktop\\lab_projects\\Neurobooth_Explorer\\data'
+face_landmark_filename = 'C:\\Users\\siddh\\Desktop\\repos\\neurobooth-explorer\\facial_landmark_file\\100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
+###
+
+config_file_loc = 'C:\\Users\\siddh\\.db_secrets\\db_secrets.txt'
+config = configparser.ConfigParser()
+config.read(config_file_loc)
+
+# Setting db access args #
+ssh_args = dict(
+        ssh_address_or_host=config['windows']['ssh_address_or_host'],
+        ssh_username=config['windows']['ssh_username'],
+        host_pkey_directories=config['windows']['host_pkey_directories'],
+        remote_bind_address=(config['windows']['remote_bind_address'], int(config['windows']['remote_bind_address_port'])),
+        local_bind_address=(config['windows']['local_bind_address'], int(config['windows']['local_bind_address_port'])),
+        allow_agent=False
+)
+
+db_args = dict(
+    database=config['windows']['database'], user=config['windows']['user'], password=config['windows']['password'],
+    # host='localhost'
+)
+
+
+# ### LINUX P620 ###
+
+# # --- ssh, db cred, variable assignment for Ubuntu on P620 Workstation --- #
+
+# ### setting data file locations ###
+# file_loc = '/home/sid/data'
+# face_landmark_filename = '/home/sid/Desktop/repos/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
+# ###
+
+# config_file_loc = '~/.db_secrets/db_secrets.txt'
+# config = configparser.ConfigParser()
+# config.read(config_file_loc)
+
+# # Setting db access args #
+# ssh_args = dict(
+#         ssh_address_or_host=config['linux']['ssh_address_or_host'],
+#         ssh_username=config['linux']['ssh_username'],
+#         ssh_pkey=config['linux']['ssh_pkey'],
+#         remote_bind_address=(config['linux']['remote_bind_address'], int(config['linux']['remote_bind_address_port'])),
+#         local_bind_address=(config['linux']['local_bind_address'], int(config['linux']['local_bind_address_port'])),
+#         allow_agent=False
+# )
+
+# db_args = dict(
+#     database=config['linux']['database'], user=config['linux']['user'], password=config['linux']['password'],
+#     # host='localhost'
+# )
+
+
+# ### Control Machine ###
+
+# # --- ssh, db cred, variable assignment for Control @ Neurobooth --- #
+# ### setting data file locations ###
+# file_loc = 'Z:\\'
+# face_landmark_filename = 'C:\\Users\\siddh\\Desktop\\repos\\neurobooth-explorer\\facial_landmark_file\\100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
+# ###
+# from neurobooth_os.secrets_info import secrets
+# host = secrets['database']['host']
+# port = 5432
+# conn = psycopg2.connect(database=database, 
+#                         user=secrets['database']['user'],
+#                         password=secrets['database']['pass'],
+#                         host=host,
+#                         port=port)
+
+
 # --- Function to compute age from date of birth --- #
 def calculate_age(dob):
     today = date.today()
     return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+
+###### Building Master Data Table ######
+
+sql_query_cmd = """
+SELECT subject.subject_id, subject.gender_at_birth, subject.date_of_birth, tech_obs_log.date_times, tech_obs_log.tech_obs_log_id,
+       tech_obs_log.tech_obs_id, sensor_file_log.sensor_file_path
+FROM ((tech_obs_log
+INNER JOIN sensor_file_log ON tech_obs_log.tech_obs_log_id = sensor_file_log.tech_obs_log_id)
+INNER JOIN subject ON tech_obs_log.subject_id = subject.subject_id);
+"""
+
+def rebuild_master_data_table(sql_query_cmd):
+    # --- Querying Neurobooth Terra Database --- #
+    with SSHTunnelForwarder(**ssh_args) as tunnel:
+        with psycopg2.connect(port=tunnel.local_bind_port,
+                            host=tunnel.local_bind_host,
+                            **db_args) as conn:
+            nb_data_df = neurobooth_terra.query(conn,sql_query_cmd, ['subject_id', 'gender_at_birth', 'dob', 'session_datetime', 'task_log', 'tasks', 'file_names'])
+
+    nb_data_df.dropna(inplace=True)
+    nb_data_df['age'] = nb_data_df.dob.apply(calculate_age)
+    nb_data_df['session_date'] = [i[0].date() for i in nb_data_df.session_datetime]
+    nb_data_df['gender'] = ['M' if i=='1.0' else 'F' for i in nb_data_df.gender_at_birth]
+    col_reorder = ['subject_id', 'gender', 'dob', 'age', 'task_log', 'session_date', 'session_datetime', 'tasks', 'file_names']
+    nb_data_df = nb_data_df[col_reorder]
+    return nb_data_df
+
+# Fetching data at app launch
+nb_data_df = rebuild_master_data_table(sql_query_cmd)
 
 
 # --- Function to extract all file list from dataframe --- #
@@ -58,10 +168,6 @@ def get_task_session_files(fdf):
 
 
 # --- Function to parse task session files and return traces --- #
-
-### setting file location ###
-file_loc = '/home/sid/data'
-
 def parse_files(task_files):
 
     timeseries_data=[]
@@ -173,6 +279,7 @@ def parse_files(task_files):
                                 x=target_datetime,
                                 y=(target_pos_df['x_pos']),
                                 name='Target X',
+                                line={'shape': 'hv'},
                                 mode='lines',
                                 visible='legendonly',
                             )
@@ -182,6 +289,7 @@ def parse_files(task_files):
                                 x=target_datetime,
                                 y=(target_pos_df['y_pos']),
                                 name='Target Y',
+                                line={'shape': 'hv'},
                                 mode='lines',
                                 visible='legendonly',
                             )
@@ -406,47 +514,6 @@ def parse_files(task_files):
         return timeseries_data, specgram_data
 
 
-# --- Setting db access args --- #
-ssh_args = dict(
-        ssh_address_or_host='XXXX',
-        ssh_username='YYYY',
-        # host_pkey_directories='C:\\Users\\siddh\\.ssh',
-        ssh_pkey="~/.ssh/id_rsa",
-        remote_bind_address=('000.000.000.000', 0000),
-        local_bind_address=('localhost', 0000),
-        allow_agent=False
-)
-
-db_args = dict(
-    database='xxxx', user='xxxx', password='xxxx',
-    # host='localhost'
-)
-
-
-# --- Querying Neurobooth Terra Database --- #
-sql_query_cmd = """
-SELECT subject.subject_id, subject.gender_at_birth, subject.date_of_birth, tech_obs_log.date_times, tech_obs_log.tech_obs_log_id,
-       tech_obs_log.tech_obs_id, sensor_file_log.sensor_file_path
-FROM ((tech_obs_log
-INNER JOIN sensor_file_log ON tech_obs_log.tech_obs_log_id = sensor_file_log.tech_obs_log_id)
-INNER JOIN subject ON tech_obs_log.subject_id = subject.subject_id);
-"""
-
-with SSHTunnelForwarder(**ssh_args) as tunnel:
-    with psycopg2.connect(port=tunnel.local_bind_port,
-                          host=tunnel.local_bind_host,
-                          **db_args) as conn:
-        nb_data_df = neurobooth_terra.query(conn,sql_query_cmd, ['subject_id', 'gender_at_birth', 'dob', 'session_datetime', 'task_log', 'tasks', 'file_names'])
-
-nb_data_df.dropna(inplace=True)
-nb_data_df['age'] = nb_data_df.dob.apply(calculate_age)
-nb_data_df['session_date'] = [i[0].date() for i in nb_data_df.session_datetime]
-nb_data_df['gender'] = ['M' if i=='1.0' else 'F' for i in nb_data_df.gender_at_birth]
-col_reorder = ['subject_id', 'gender', 'dob', 'age', 'task_log', 'session_date', 'session_datetime', 'tasks', 'file_names']
-nb_data_df = nb_data_df[col_reorder]
-nb_data_df
-
-
 # --- Creating all_files list --- #
 all_file_list = get_file_list(nb_data_df)
 
@@ -459,8 +526,6 @@ clinical_list = ['Ataxia-Telangiectasia','Spino Cerebellar Ataxia', 'Parkinsonis
 
 
 # --- Reading face landmark file --- #
-# face_landmark_filename = '/home/sid/Desktop/repos/neurobooth-explorer/facial_landmark_file/100001_2022-02-18_17h-45m-35s_mouse_obs_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
-face_landmark_filename = '/home/sid/Desktop/repos/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
 face_landmark_data = read_hdf5(face_landmark_filename)['device_data']
 face_landmark_timestamps = face_landmark_data['time_stamps']
 face_landmark_points = face_landmark_data['time_series']
