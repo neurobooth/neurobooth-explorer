@@ -3,6 +3,7 @@ import neurobooth_terra
 import psycopg2
 from sshtunnel import SSHTunnelForwarder
 
+import dash_auth
 import configparser
 
 import dash
@@ -40,6 +41,14 @@ file_loc = 'C:\\Users\\siddh\\Desktop\\lab_projects\\Neurobooth_Explorer\\data'
 face_landmark_filename = 'C:\\Users\\siddh\\Desktop\\repos\\neurobooth-explorer\\facial_landmark_file\\100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
 ###
 
+auth_config_file_loc = 'C:\\Users\\siddh\\.db_secrets\\users.txt'
+auth_config = configparser.ConfigParser()
+auth_config.read(auth_config_file_loc)
+
+USERNAME_PASSWORD_PAIRS = dict()
+for ky in auth_config[auth_config.sections()[0]]:
+    USERNAME_PASSWORD_PAIRS[ky] = auth_config[auth_config.sections()[0]][ky]
+
 config_file_loc = 'C:\\Users\\siddh\\.db_secrets\\db_secrets.txt'
 config = configparser.ConfigParser()
 config.read(config_file_loc)
@@ -69,6 +78,14 @@ db_args = dict(
 # face_landmark_filename = '/home/sid/Desktop/repos/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
 # ###
 
+# auth_config_file_loc = '/home/sid/.db_secrets/users.txt'
+# auth_config = configparser.ConfigParser()
+# auth_config.read(auth_config_file_loc)
+
+# USERNAME_PASSWORD_PAIRS = dict()
+# for ky in auth_config[auth_config.sections()[0]]:
+#     USERNAME_PASSWORD_PAIRS[ky] = auth_config[auth_config.sections()[0]][ky]
+
 # config_file_loc = '/home/sid/.db_secrets/db_secrets.txt'
 # config = configparser.ConfigParser()
 # config.read(config_file_loc)
@@ -96,6 +113,15 @@ db_args = dict(
 # file_loc = 'Z:\\'
 # face_landmark_filename = 'C:\\Users\\siddh\\Desktop\\repos\\neurobooth-explorer\\facial_landmark_file\\100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
 # ###
+
+# auth_config_file_loc = '/home/sid/.db_secrets/users.txt'
+# auth_config = configparser.ConfigParser()
+# auth_config.read(auth_config_file_loc)
+
+# USERNAME_PASSWORD_PAIRS = dict()
+# for ky in auth_config[auth_config.sections()[0]]:
+#     USERNAME_PASSWORD_PAIRS[ky] = auth_config[auth_config.sections()[0]][ky]
+
 # from neurobooth_os.secrets_info import secrets
 # host = secrets['database']['host']
 # port = 5432
@@ -534,6 +560,7 @@ face_landmark_y = face_landmark_points[::100,:,1]
 
 
 app = dash.Dash(__name__)
+auth = dash_auth.BasicAuth(app, USERNAME_PASSWORD_PAIRS)
 
 
 app.layout = html.Div([
