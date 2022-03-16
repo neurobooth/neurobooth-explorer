@@ -252,7 +252,7 @@ def parse_files(task_files):
 
                     #try:
                     mdata = read_hdf5(fname)['marker']
-                    print(mdata.keys())
+                    #print(mdata.keys())
                     
                     ts_ix = []
                     x_coord = []
