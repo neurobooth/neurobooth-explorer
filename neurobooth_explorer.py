@@ -69,7 +69,7 @@ db_args = dict(
 # face_landmark_filename = '/home/sid/Desktop/repos/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
 # ###
 
-# config_file_loc = '~/.db_secrets/db_secrets.txt'
+# config_file_loc = '/home/sid/.db_secrets/db_secrets.txt'
 # config = configparser.ConfigParser()
 # config.read(config_file_loc)
 
