@@ -8,7 +8,8 @@ import dash_auth
 
 import configparser
 auth_config = configparser.ConfigParser()
-auth_config_file_loc = 'C:\\Users\\siddh\\.db_secrets\\users.txt'
+auth_config_file_loc = '/home/sid/.db_secrets/users.txt'
+#auth_config_file_loc = 'C:\\Users\\siddh\\.db_secrets\\users.txt'
 auth_config.read(auth_config_file_loc)
 USERNAME_PASSWORD_PAIRS = dict()
 for ky in auth_config[auth_config.sections()[0]]:
@@ -40,4 +41,5 @@ def display_color(color):
     return fig1
 
 if __name__ == '__main__':
-    app.run_server(host='0.0.0.0', port='8050', debug=True)
+    context = ('/home/sid/.db_secrets/nb_cert.pem', '/home/sid/.db_secrets/nb_key.pem')
+    app.run_server(host='0.0.0.0', port='8050', debug=False, ssl_context=context)
