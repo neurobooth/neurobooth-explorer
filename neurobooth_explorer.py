@@ -28,45 +28,45 @@ from datetime import date
 from scipy import signal
 
 
-###########################################
-### Comment out section depending on os ###
-###########################################
+# ###########################################
+# ### Comment out section depending on os ###
+# ###########################################
 
-### WINDOWS Legion ###
+# ### WINDOWS Legion ###
 
-# --- ssh, db cred, variable assignment for Windows 11 on Legion --- #
+# # --- ssh, db cred, variable assignment for Windows 11 on Legion --- #
 
-### setting data file locations ###
-file_loc = 'C:\\Users\\siddh\\Desktop\\lab_projects\\Neurobooth_Explorer\\data'
-face_landmark_filename = 'C:\\Users\\siddh\\Desktop\\repos\\neurobooth-explorer\\facial_landmark_file\\100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
-###
+# ### setting data file locations ###
+# file_loc = 'C:\\Users\\siddh\\Desktop\\lab_projects\\Neurobooth_Explorer\\data'
+# face_landmark_filename = 'C:\\Users\\siddh\\Desktop\\repos\\neurobooth-explorer\\facial_landmark_file\\100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
+# ###
 
-auth_config_file_loc = 'C:\\Users\\siddh\\.db_secrets\\users.txt'
-auth_config = configparser.ConfigParser()
-auth_config.read(auth_config_file_loc)
+# auth_config_file_loc = 'C:\\Users\\siddh\\.db_secrets\\users.txt'
+# auth_config = configparser.ConfigParser()
+# auth_config.read(auth_config_file_loc)
 
-USERNAME_PASSWORD_PAIRS = dict()
-for ky in auth_config[auth_config.sections()[0]]:
-    USERNAME_PASSWORD_PAIRS[ky] = auth_config[auth_config.sections()[0]][ky]
+# USERNAME_PASSWORD_PAIRS = dict()
+# for ky in auth_config[auth_config.sections()[0]]:
+#     USERNAME_PASSWORD_PAIRS[ky] = auth_config[auth_config.sections()[0]][ky]
 
-config_file_loc = 'C:\\Users\\siddh\\.db_secrets\\db_secrets.txt'
-config = configparser.ConfigParser()
-config.read(config_file_loc)
+# config_file_loc = 'C:\\Users\\siddh\\.db_secrets\\db_secrets.txt'
+# config = configparser.ConfigParser()
+# config.read(config_file_loc)
 
-# Setting db access args #
-ssh_args = dict(
-        ssh_address_or_host=config['windows']['ssh_address_or_host'],
-        ssh_username=config['windows']['ssh_username'],
-        host_pkey_directories=config['windows']['host_pkey_directories'],
-        remote_bind_address=(config['windows']['remote_bind_address'], int(config['windows']['remote_bind_address_port'])),
-        local_bind_address=(config['windows']['local_bind_address'], int(config['windows']['local_bind_address_port'])),
-        allow_agent=False
-)
+# # Setting db access args #
+# ssh_args = dict(
+#         ssh_address_or_host=config['windows']['ssh_address_or_host'],
+#         ssh_username=config['windows']['ssh_username'],
+#         host_pkey_directories=config['windows']['host_pkey_directories'],
+#         remote_bind_address=(config['windows']['remote_bind_address'], int(config['windows']['remote_bind_address_port'])),
+#         local_bind_address=(config['windows']['local_bind_address'], int(config['windows']['local_bind_address_port'])),
+#         allow_agent=False
+# )
 
-db_args = dict(
-    database=config['windows']['database'], user=config['windows']['user'], password=config['windows']['password'],
-    # host='localhost'
-)
+# db_args = dict(
+#     database=config['windows']['database'], user=config['windows']['user'], password=config['windows']['password'],
+#     # host='localhost'
+# )
 
 
 # ### LINUX P620 ###
@@ -106,30 +106,25 @@ db_args = dict(
 # )
 
 
-# ### Control Machine ###
+### Control Machine ###
 
-# # --- ssh, db cred, variable assignment for Control @ Neurobooth --- #
-# ### setting data file locations ###
-# file_loc = 'Z:\\'
-# face_landmark_filename = 'C:\\Users\\siddh\\Desktop\\repos\\neurobooth-explorer\\facial_landmark_file\\100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
-# ###
+# --- ssh, db cred, variable assignment for Control @ Neurobooth --- #
 
-# auth_config_file_loc = '/home/sid/.db_secrets/users.txt'
-# auth_config = configparser.ConfigParser()
-# auth_config.read(auth_config_file_loc)
+from neurobooth_os.secrets_info import secrets
 
-# USERNAME_PASSWORD_PAIRS = dict()
-# for ky in auth_config[auth_config.sections()[0]]:
-#     USERNAME_PASSWORD_PAIRS[ky] = auth_config[auth_config.sections()[0]][ky]
+### setting data file locations ###
+file_loc = 'Z:\\data'
+face_landmark_filename = 'C:\\neurobooth\\neurobooth-explorer\\facial_landmark_file\\100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
+###
 
-# from neurobooth_os.secrets_info import secrets
-# host = secrets['database']['host']
-# port = 5432
-# conn = psycopg2.connect(database=database, 
-#                         user=secrets['database']['user'],
-#                         password=secrets['database']['pass'],
-#                         host=host,
-#                         port=port)
+auth_config_file_loc = 'C:\\Users\\CTR\\.db_secrets\\users.txt'
+auth_config = configparser.ConfigParser()
+auth_config.read(auth_config_file_loc)
+
+USERNAME_PASSWORD_PAIRS = dict()
+for ky in auth_config[auth_config.sections()[0]]:
+    USERNAME_PASSWORD_PAIRS[ky] = auth_config[auth_config.sections()[0]][ky]
+#######################
 
 
 # --- Function to compute age from date of birth --- #
@@ -148,12 +143,24 @@ INNER JOIN subject ON tech_obs_log.subject_id = subject.subject_id);
 """
 
 def rebuild_master_data_table(sql_query_cmd):
-    # --- Querying Neurobooth Terra Database --- #
-    with SSHTunnelForwarder(**ssh_args) as tunnel:
-        with psycopg2.connect(port=tunnel.local_bind_port,
-                            host=tunnel.local_bind_host,
-                            **db_args) as conn:
-            nb_data_df = neurobooth_terra.query(conn,sql_query_cmd, ['subject_id', 'gender_at_birth', 'dob', 'session_datetime', 'task_log', 'tasks', 'file_names'])
+    
+    # --- Querying on control --- #
+    database = secrets['database']['dbname']
+    host = secrets['database']['host']
+    port = 5432
+    with psycopg2.connect(database=database, 
+                            user=secrets['database']['user'],
+                            password=secrets['database']['pass'],
+                            host=host,
+                            port=port) as conn:
+        nb_data_df = neurobooth_terra.query(conn,sql_query_cmd, ['subject_id', 'gender_at_birth', 'dob', 'session_datetime', 'task_log', 'tasks', 'file_names'])
+    
+    # # --- Querying Neurobooth Terra Database --- #
+    # with SSHTunnelForwarder(**ssh_args) as tunnel:
+    #     with psycopg2.connect(port=tunnel.local_bind_port,
+    #                         host=tunnel.local_bind_host,
+    #                         **db_args) as conn:
+    #         nb_data_df = neurobooth_terra.query(conn,sql_query_cmd, ['subject_id', 'gender_at_birth', 'dob', 'session_datetime', 'task_log', 'tasks', 'file_names'])
 
     nb_data_df.dropna(inplace=True)
     nb_data_df['age'] = nb_data_df.dob.apply(calculate_age)
