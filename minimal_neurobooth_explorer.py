@@ -18,6 +18,8 @@ import pandas as pd
 from os import walk
 from os.path import join
 
+from datetime import datetime
+
 ###########################################
 ### Comment out section depending on os ###
 ###########################################
@@ -155,12 +157,19 @@ app.layout = html.Div([
                                 '''),style={'padding-left':'8%'},
                                 ),
                         html.Hr(),
+                        html.Div([
+                                dcc.Markdown('''Click button to retrieve new data from Neurobooth database'''),
+                                html.Button('Get New Data', id='db_button', n_clicks_timestamp=0),
+                                html.Div(id='button_container', children='Click button to retreive new data', style={'padding-top':'2%'})
+                                ], style={'textAlign':'center', 'width': '50%', 'margin':'auto', 'verticalAlign': 'middle'}),
+                        html.Hr(),
                         html.Div([dcc.Markdown('''
                                                 Hints:
                                                 * Refresh page to retrieve latest data from the Neurobooth database
                                                 * Double click anywhere in the plot area to reset view''', style={'padding-left':'8%'})]),
                         html.Hr(),
-                        html.Div([dcc.Markdown('''Thank you for using Neurobooth Explorer''', style={'textAlign':'center'})]),
+                        html.Div([dcc.Markdown('''
+                                                Thank you for using Neurobooth Explorer''', style={'textAlign':'center'})]),
                         html.Hr(),
                     ])
 
@@ -197,6 +206,13 @@ def update_table(subid_value, date_value, clinical_value):
     columns = [{'name': col, 'id': col} for col in data_df.columns]
     
     return data, columns
+
+@app.callback(
+    Output('button_container', 'children'),
+    Input('db_button', 'n_clicks_timestamp'))
+def on_button_click(n_clicks_timestamp):
+    dt_str = datetime.fromtimestamp(int(n_clicks_timestamp/1000)).strftime('%Y-%m-%d, %H:%M:%S')
+    return 'The connection to database was last refreshed at ' + dt_str
 
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0', port='8050', debug=True)

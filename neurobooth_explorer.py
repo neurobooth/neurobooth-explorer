@@ -659,10 +659,18 @@ app.layout = html.Div([
                                         ], className="three columns", style={'width':'30%', 'display':'inline-block', 'verticalAlign':'center', 'horizontalAlign':'left'})#, 'padding-left':'2%', 'padding-right':'3%'
                                 ]),
                         html.Hr(),
+                        html.Div([
+                                dcc.Markdown('''Click button to retrieve new data from Neurobooth database'''),
+                                html.Button('Get New Data', id='db_button', n_clicks_timestamp=0),
+                                html.Div(id='button_container', children='Click button to retreive new data', style={'padding-top':'2%'})
+                                ], style={'textAlign':'center', 'width': '50%', 'margin':'auto', 'verticalAlign': 'middle'}),
+                        html.Hr(),
                         html.Div([dcc.Markdown('''
                                                 Hints:
-                                                * Refresh page to retrieve latest data from the Neurobooth database
-                                                * Double click anywhere in the plot area to reset view''', style={'padding-left':'8%'})]),
+                                                * Double click anywhere in the plot area to reset view
+                                                * Use control buttons at top right corner of plot area to interact with the plots
+                                                * You can zoom in/out, pan, select area etc.
+                                                Email spatel@phmi.partners.org for bug reports and feedback''', style={'padding-left':'8%'})]),
                         html.Hr(),
                         html.Div([dcc.Markdown('''Thank you for using Neurobooth Explorer''', style={'textAlign':'center'})]),
                         html.Hr(),
@@ -681,10 +689,10 @@ app.layout = html.Div([
     Input("task_dropdown", "value"),
     Input("clinical_dropdown", "value")])
 def update_table(subid_value, date_value, task_value, clinical_value):
-    
+
     # getting most recent context
     changed_id = [p['prop_id'] for p in callback_context.triggered][0]
-    
+
     # setting dropdown_value based on most recent context
     dropdown_value=None
     
@@ -853,6 +861,19 @@ def update_face_landmark_frame(selected_frame, specgram_fig):
         specgram_fig['data'][1]['y'] = specgram_fig['data'][0]['y']
 
     return [face_frame_fig, specgram_fig]
+
+
+@app.callback(
+    Output('button_container', 'children'),
+    Input('db_button', 'n_clicks_timestamp'))
+def on_button_click(n_clicks_timestamp):
+    
+    # Retrieving new data from database
+    global nb_data_df
+    nb_data_df = rebuild_master_data_table(sql_query_cmd)
+
+    dt_str = datetime.fromtimestamp(int(n_clicks_timestamp/1000)).strftime('%Y-%m-%d, %H:%M:%S')
+    return 'The connection to database was last refreshed at ' + dt_str
 
 
 if __name__ == '__main__':

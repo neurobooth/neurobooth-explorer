@@ -4,9 +4,20 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 import plotly.graph_objects as go
 
+import dash_auth
+
+import configparser
+auth_config = configparser.ConfigParser()
+auth_config_file_loc = 'C:\\Users\\siddh\\.db_secrets\\users.txt'
+auth_config.read(auth_config_file_loc)
+USERNAME_PASSWORD_PAIRS = dict()
+for ky in auth_config[auth_config.sections()[0]]:
+    USERNAME_PASSWORD_PAIRS[ky] = auth_config[auth_config.sections()[0]][ky]
+
 color_list = ['Gold', 'MediumTurquoise', 'LightGreen']
 
 app = dash.Dash(__name__)
+auth = dash_auth.BasicAuth(app, USERNAME_PASSWORD_PAIRS)
 
 app.layout = html.Div([
                         html.Div([dcc.Markdown('''Select Color''', style={'textAlign':'left'})]),
