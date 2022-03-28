@@ -32,46 +32,46 @@ from scipy import signal
 # ### Comment out section depending on os ###
 # ###########################################
 
-### WINDOWS Legion ###
+# ### WINDOWS Legion ###
 
-# --- ssh, db cred, variable assignment for Windows 11 on Legion --- #
+# # --- ssh, db cred, variable assignment for Windows 11 on Legion --- #
 
-### setting data file locations ###
-file_loc = 'C:\\Users\\siddh\\Desktop\\lab_projects\\Neurobooth_Explorer\\data'
-face_landmark_filename = 'C:\\Users\\siddh\\Desktop\\repos\\neurobooth-explorer\\facial_landmark_file\\100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
-###
+# ### setting data file locations ###
+# file_loc = 'C:\\Users\\siddh\\Desktop\\lab_projects\\Neurobooth_Explorer\\data'
+# face_landmark_filename = 'C:\\Users\\siddh\\Desktop\\repos\\neurobooth-explorer\\facial_landmark_file\\100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
+# ###
 
-auth_config_file_loc = 'C:\\Users\\siddh\\.db_secrets\\users.txt'
-auth_config = configparser.ConfigParser()
-auth_config.read(auth_config_file_loc)
+# auth_config_file_loc = 'C:\\Users\\siddh\\.db_secrets\\users.txt'
+# auth_config = configparser.ConfigParser()
+# auth_config.read(auth_config_file_loc)
 
-USERNAME_PASSWORD_PAIRS = dict()
-for ky in auth_config[auth_config.sections()[0]]:
-    USERNAME_PASSWORD_PAIRS[ky] = auth_config[auth_config.sections()[0]][ky]
+# USERNAME_PASSWORD_PAIRS = dict()
+# for ky in auth_config[auth_config.sections()[0]]:
+#     USERNAME_PASSWORD_PAIRS[ky] = auth_config[auth_config.sections()[0]][ky]
 
-db_config_file_loc = 'C:\\Users\\siddh\\.db_secrets\\db_secrets.txt'
-config = configparser.ConfigParser()
-config.read(db_config_file_loc)
+# db_config_file_loc = 'C:\\Users\\siddh\\.db_secrets\\db_secrets.txt'
+# config = configparser.ConfigParser()
+# config.read(db_config_file_loc)
 
-# Setting db access args #
-ssh_args = dict(
-        ssh_address_or_host=config['windows']['ssh_address_or_host'],
-        ssh_username=config['windows']['ssh_username'],
-        host_pkey_directories=config['windows']['host_pkey_directories'],
-        remote_bind_address=(config['windows']['remote_bind_address'], int(config['windows']['remote_bind_address_port'])),
-        local_bind_address=(config['windows']['local_bind_address'], int(config['windows']['local_bind_address_port'])),
-        allow_agent=False
-)
+# # Setting db access args #
+# ssh_args = dict(
+#         ssh_address_or_host=config['windows']['ssh_address_or_host'],
+#         ssh_username=config['windows']['ssh_username'],
+#         host_pkey_directories=config['windows']['host_pkey_directories'],
+#         remote_bind_address=(config['windows']['remote_bind_address'], int(config['windows']['remote_bind_address_port'])),
+#         local_bind_address=(config['windows']['local_bind_address'], int(config['windows']['local_bind_address_port'])),
+#         allow_agent=False
+# )
 
-db_args = dict(
-    database=config['windows']['database'], user=config['windows']['user'], password=config['windows']['password'],
-    # host='localhost'
-)
+# db_args = dict(
+#     database=config['windows']['database'], user=config['windows']['user'], password=config['windows']['password'],
+#     # host='localhost'
+# )
 
 
-# ### LINUX P620 and Neurodoor ###
+### LINUX P620 and Neurodoor ###
 
-# # --- ssh, db cred, variable assignment for Ubuntu on P620 Workstation --- #
+# --- ssh, db cred, variable assignment for Ubuntu on P620 Workstation --- #
 
 # ### setting data file locations ###
 # file_loc = '/home/sid/data'
@@ -80,37 +80,37 @@ db_args = dict(
 # db_config_file_loc = '/home/sid/.db_secrets/db_secrets.txt'
 # ###
 
-# ### setting data file locations for Neurodoor ###
-# file_loc = '/autofs/nas/neurobooth/data'
-# face_landmark_filename = '/homes/5/sp1022/repos/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
-# auth_config_file_loc = '/homes/5/sp1022/.db_secrets/users.txt'
-# db_config_file_loc = '/homes/5/sp1022/.db_secrets/db_secrets.txt'
-# ###
+### setting data file locations for Neurodoor ###
+file_loc = '/autofs/nas/neurobooth/data'
+face_landmark_filename = '/homes/5/sp1022/repos/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
+auth_config_file_loc = '/homes/5/sp1022/.db_secrets/users.txt'
+db_config_file_loc = '/homes/5/sp1022/.db_secrets/db_secrets.txt'
+###
 
-# auth_config = configparser.ConfigParser()
-# auth_config.read(auth_config_file_loc)
+auth_config = configparser.ConfigParser()
+auth_config.read(auth_config_file_loc)
 
-# USERNAME_PASSWORD_PAIRS = dict()
-# for ky in auth_config[auth_config.sections()[0]]:
-#     USERNAME_PASSWORD_PAIRS[ky] = auth_config[auth_config.sections()[0]][ky]
+USERNAME_PASSWORD_PAIRS = dict()
+for ky in auth_config[auth_config.sections()[0]]:
+    USERNAME_PASSWORD_PAIRS[ky] = auth_config[auth_config.sections()[0]][ky]
 
-# config = configparser.ConfigParser()
-# config.read(db_config_file_loc)
+config = configparser.ConfigParser()
+config.read(db_config_file_loc)
 
-# # Setting db access args #
-# ssh_args = dict(
-#         ssh_address_or_host=config['linux']['ssh_address_or_host'],
-#         ssh_username=config['linux']['ssh_username'],
-#         ssh_pkey=config['linux']['ssh_pkey'],
-#         remote_bind_address=(config['linux']['remote_bind_address'], int(config['linux']['remote_bind_address_port'])),
-#         local_bind_address=(config['linux']['local_bind_address'], int(config['linux']['local_bind_address_port'])),
-#         allow_agent=False
-# )
+# Setting db access args #
+ssh_args = dict(
+        ssh_address_or_host=config['linux']['ssh_address_or_host'],
+        ssh_username=config['linux']['ssh_username'],
+        ssh_pkey=config['linux']['ssh_pkey'],
+        remote_bind_address=(config['linux']['remote_bind_address'], int(config['linux']['remote_bind_address_port'])),
+        local_bind_address=(config['linux']['local_bind_address'], int(config['linux']['local_bind_address_port'])),
+        allow_agent=False
+)
 
-# db_args = dict(
-#     database=config['linux']['database'], user=config['linux']['user'], password=config['linux']['password'],
-#     # host='localhost'
-# )
+db_args = dict(
+    database=config['linux']['database'], user=config['linux']['user'], password=config['linux']['password'],
+    # host='localhost'
+)
 
 
 # ### Control Machine ###
