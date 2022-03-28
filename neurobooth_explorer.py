@@ -921,6 +921,6 @@ def on_button_click(n_clicks_timestamp):
 
 
 if __name__ == '__main__':
-    #context = ('/usr/etc/certs/server.crt', '/usr/etc/certs/server.key')
+    #context = ('/home/sid/.db_secrets/nb_cert.pem', '/home/sid/.db_secrets/nb_key.pem')
     context = ('/usr/etc/certs/server.crt', '/usr/etc/certs/server.key')
     app.run_server(host='0.0.0.0', port='8050', debug=True, ssl_context=context)
