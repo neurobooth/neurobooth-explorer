@@ -143,7 +143,7 @@ def calculate_age(dob):
 ###### Building Master Data Table ######
 
 sql_query_cmd = """
-SELECT subject.subject_id, subject.gender_at_birth, subject.date_of_birth, tech_obs_log.date_times, tech_obs_log.tech_obs_log_id,
+SELECT subject.subject_id, subject.gender_at_birth_subject, subject.date_of_birth_subject, tech_obs_log.date_times, tech_obs_log.tech_obs_log_id,
        tech_obs_log.tech_obs_id, sensor_file_log.sensor_file_path
 FROM ((tech_obs_log
 INNER JOIN sensor_file_log ON tech_obs_log.tech_obs_log_id = sensor_file_log.tech_obs_log_id)
@@ -921,4 +921,5 @@ def on_button_click(n_clicks_timestamp):
 
 
 if __name__ == '__main__':
-    app.run_server(host='0.0.0.0', port='8050', debug=True)
+    context = ('/usr/etc/certs/server.crt', '/usr/etc/certs/server.key')
+    app.run_server(host='0.0.0.0', port='8050', debug=True, ssl_context=context)
