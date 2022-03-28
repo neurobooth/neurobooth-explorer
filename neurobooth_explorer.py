@@ -649,6 +649,7 @@ app.layout = html.Div([
                                 * Click legend to toggle trace visibility
                                 * Double click any legend to toggle all traces
                                 ''',style={'padding-left':'8%'}),
+                                dcc.Loading(id="loading-indicator", children=None, type="graph", fullscreen=False),
                                 dcc.Graph(id="timeseries_graph")
                                 ]),
                         html.Hr(),
@@ -779,7 +780,8 @@ def update_table(subid_value, date_value, task_value, clinical_value):
     [Output(component_id='task_session_file_datatable', component_property='data'),
     Output(component_id='task_session_file_datatable', component_property='columns'),
     Output('timeseries_graph', 'figure'),
-    Output('specgram_graph', 'figure')],
+    Output('specgram_graph', 'figure'),
+    Output("loading-indicator","children")],
     [Input("task_session_dropdown", "value")])
 def update_table(task_session_value):
     task_files=[]
@@ -841,7 +843,7 @@ def update_table(task_session_value):
     specgram_fig = go.Figure(data=specgram_data, layout=specgram_layout)
     specgram_fig.update_layout(legend_x=1, legend_y=1)
 
-    return data, columns, timeseries_fig, specgram_fig
+    return data, columns, timeseries_fig, specgram_fig, None
 
 
 @app.callback(
