@@ -684,8 +684,12 @@ app.layout = html.Div([
                                                 * Double click anywhere in the plot area to reset view
                                                 * Use control buttons at top right corner of plot area to interact with the plots
                                                 * You can zoom in/out, pan, select area etc.
-                                                * Refreshing the page also retrieves new data from the database
-                                                * Email spatel@phmi.partners.org for bug reports and feedback''', style={'padding-left':'8%'})]),
+                                                * Refreshing this page also retrieves new data from the Neurobooth database  
+                                                  
+                                                Email [spatel@phmi.partners.org](mailto:spatel@phmi.partners.org) for bug reports and feedback''',
+                                                style={'padding-left':'8%'}
+                                                )
+                                ]),
                         html.Hr(),
                         html.Div([dcc.Markdown('''Thank you for using Neurobooth Explorer''', style={'textAlign':'center'})]),
                         html.Hr(),
