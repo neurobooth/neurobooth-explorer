@@ -783,7 +783,10 @@ def update_table(task_session_value):
         for i in all_file_list:
             if task_session_value in i:
                 task_files.append(i)
-        task_files = np.sort(list(set(task_files)))
+        if len(task_files) > 0:
+            task_files = np.sort(list(set(task_files)))
+        else:
+            task_files.append('No file found')
     except:
         task_files.append('No file found')
     task_file_df = pd.DataFrame(task_files, columns=['task_files'])
@@ -887,14 +890,19 @@ def update_face_landmark_frame(selected_frame, specgram_fig):
     Input('db_button', 'n_clicks_timestamp'))
 def on_button_click(n_clicks_timestamp):
     
-    # Retrieving new data from database
+    # defining global variables
     global nb_data_df
     global sub_id_list
     global session_date_list
     global task_list
     global clinical_list
+    global all_file_list
 
+    # Retrieving new data from database
     nb_data_df, sub_id_list, session_date_list, task_list, clinical_list = rebuild_master_data_table(sql_query_cmd)
+    
+    # Generate new all_file_list from new nb_data_df
+    all_file_list = get_file_list(nb_data_df)
 
     updated_sub_id_list_options = [ {'label': x, 'value': x} for x in sub_id_list]
     updated_session_date_list_options = [ {'label': x, 'value': x} for x in session_date_list]
