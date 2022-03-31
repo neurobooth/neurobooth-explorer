@@ -143,7 +143,7 @@ def calculate_age(dob):
 ###### Building Master Data Table ######
 
 sql_query_cmd = """
-SELECT subject.subject_id, subject.gender_at_birth_subject, subject.date_of_birth_subject, tech_obs_log.date_times, tech_obs_log.tech_obs_log_id,
+SELECT subject.subject_id, subject.gender_at_birth, subject.date_of_birth_subject, tech_obs_log.date_times, tech_obs_log.tech_obs_log_id,
        tech_obs_log.tech_obs_id, sensor_file_log.sensor_file_path
 FROM ((tech_obs_log
 INNER JOIN sensor_file_log ON tech_obs_log.tech_obs_log_id = sensor_file_log.tech_obs_log_id)
@@ -176,6 +176,14 @@ def rebuild_master_data_table(sql_query_cmd):
     nb_data_df['gender'] = ['M' if i=='1.0' else 'F' for i in nb_data_df.gender_at_birth]
     col_reorder = ['subject_id', 'gender', 'dob', 'age', 'task_log', 'session_date', 'session_datetime', 'tasks', 'file_names']
     nb_data_df = nb_data_df[col_reorder]
+    # creating hdf5 file column
+    hdf5_arr = [np.nan] * len(nb_data_df)
+    for ix, fil_arr in enumerate(nb_data_df.file_names.tolist()):
+        for fil in fil_arr:
+            if fil[-5:] == '.hdf5':
+                hdf5_arr[ix] = fil
+    nb_data_df['hdf5_files'] = hdf5_arr
+    nb_data_df.dropna(inplace=True)
 
     # --- Generating dropdown lists --- #
     sub_id_list = [str(j) for j in np.sort([int(i) for i in nb_data_df.subject_id.unique()])]
@@ -190,13 +198,13 @@ nb_data_df, sub_id_list, session_date_list, task_list, clinical_list = rebuild_m
 
 
 # --- Function to extract all file list from dataframe --- #
-def get_file_list(fdf):
-    file_list=[]
-    for file_array in fdf.file_names:
-        for file in file_array:
-            if file[-5:] == '.hdf5':
-                file_list.append(file)
-    return file_list
+# def get_file_list(fdf):
+#     file_list=[]
+#     for file_array in fdf.file_names:
+#         for file in file_array:
+#             if file[-5:] == '.hdf5':
+#                 file_list.append(file)
+#     return file_list
 
 
 # --- Function to extract task session file list from datafarme --- #
@@ -253,12 +261,16 @@ def parse_files(task_files):
             if 'Eyelink' in file:
                 try:
                     fname = glob.glob(op.join(file_loc, file))[0]
-                    fdata = read_hdf5(fname)['device_data']
+                    complete_file = read_hdf5(fname)
+                    fdata = complete_file['device_data']
+                    mdata = complete_file['marker']
 
                     et_df = pd.DataFrame(fdata['time_series'][:, [0,1,3,4]], columns=['R_gaze_x','R_gaze_y','L_gaze_x','L_gaze_y'])
                     et_df['timestamps'] = fdata['time_stamps']
                     #print(et_df.head(n=2))
-                    et_datetime = [datetime.fromtimestamp(timestamp) for timestamp in et_df.timestamps]
+
+                    dt_corr = int(float(mdata['time_series'][0][0].split('_')[-1]) - mdata['time_stamps'][0]) # datetime-correction factor : time correction offset for correcting LSL time to local time
+                    et_datetime = et_df.timestamps.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
 
                     trace1 = go.Scatter(
                                 x=et_datetime,
@@ -297,11 +309,8 @@ def parse_files(task_files):
                             )
                     timeseries_data.append(trace4)
                     #print(trace4)
-
-                    #try:
-                    mdata = read_hdf5(fname)['marker']
-                    #print(mdata.keys())
                     
+                    # Adding target trace - target trace is always extracted from eyelink marker data
                     ts_ix = []
                     x_coord = []
                     y_coord = []
@@ -312,16 +321,14 @@ def parse_files(task_files):
                             x_coord.append(int(l[3][:-1]))
                             y_coord.append(int(l[4]))
 
-                    ctrl_ts = []
-                    for ix in ts_ix:
-                        ctrl_ts.append(mdata['time_stamps'][ix])
+                    ctrl_ts = mdata['time_stamps'][ts_ix]
                         
                     target_pos_df = pd.DataFrame()
                     target_pos_df['ctrl_ts'] = ctrl_ts
                     target_pos_df['x_pos'] = x_coord
                     target_pos_df['y_pos'] = y_coord
                     #print(target_pos_df.head(n=2))
-                    target_datetime = [datetime.fromtimestamp(timestamp) for timestamp in target_pos_df.ctrl_ts]
+                    target_datetime = target_pos_df.ctrl_ts.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
 
                     target_x_trace = go.Scatter(
                                 x=target_datetime,
@@ -358,16 +365,21 @@ def parse_files(task_files):
             if 'Mouse' in  file:
                 try:
                     fname = glob.glob(op.join(file_loc, file))[0]
-                    fdata = read_hdf5(fname)['device_data']
+                    complete_file = read_hdf5(fname)
+                    fdata = complete_file['device_data']
+                    mdata = complete_file['marker']
 
                     mouse_df = pd.DataFrame(fdata['time_series'][:,:], columns=['mouse_x','mouse_y','clicks'])
                     mouse_df['timestamps'] = fdata['time_stamps']
                     #print(mouse_df.head(n=2))
-                    mouse_datetime = [datetime.fromtimestamp(timestamp) for timestamp in mouse_df.timestamps]
+
+                    dt_corr = int(float(mdata['time_series'][0][0].split('_')[-1]) - mdata['time_stamps'][0]) # datetime-correction factor : time correction offset for correcting LSL time to local time
+                    mouse_datetime = np.array(mouse_df.timestamps.apply(lambda x: datetime.fromtimestamp(dt_corr+x)))
+                    # mouse_datetime = np.array([datetime.fromtimestamp(dt_corr + timestamp) for timestamp in mouse_df.timestamps])
 
                     trace5 = go.Scatter(
-                                x=mouse_datetime,
-                                y=mouse_df['mouse_x'],
+                                x=mouse_datetime[::10],
+                                y=mouse_df['mouse_x'][::10],
                                 name='Mouse X',
                                 mode='lines',
                                 visible='legendonly'
@@ -375,13 +387,61 @@ def parse_files(task_files):
                     timeseries_data.append(trace5)
 
                     trace6 = go.Scatter(
-                                x=mouse_datetime,
-                                y=mouse_df['mouse_y'],
+                                x=mouse_datetime[::10],
+                                y=mouse_df['mouse_y'][::10],
                                 name='Mouse Y',
                                 mode='lines',
                                 visible='legendonly'
                             )
                     timeseries_data.append(trace6)
+
+
+                    marker_timestamp_for_valid_click = [mdata['time_stamps'][ix] for ix, txt in enumerate(mdata['time_series']) if 'mouse_valid_click' in txt[0]]
+                    valid_click_index_in_mouse = []
+                    for marker_timestamp in marker_timestamp_for_valid_click:
+                        # find mousedata timestamp closest to valid click marker timestamp
+                        valid_click_index_in_mouse.append(np.argmin(abs(fdata['time_stamps'] - marker_timestamp)))
+
+
+                    marker_timestamp_for_cursor_in_target = [mdata['time_stamps'][ix] for ix, txt in enumerate(mdata['time_series']) if 'mouse_in_target' in txt[0] or "'in': 1" in txt[0]]
+                    cursor_in_target_index_in_mouse = []
+                    for marker_timestamp in marker_timestamp_for_cursor_in_target:
+                        # find mousedata timestamp closest to cursor in target marker timestamp
+                        cursor_in_target_index_in_mouse.append(np.argmin(abs(fdata['time_stamps'] - marker_timestamp)))
+                    #print(cursor_in_target_index_in_mouse[0:2])
+
+                    cursor_in_target_x_trace = go.Scatter(
+                                x=mouse_datetime[cursor_in_target_index_in_mouse],
+                                y=mouse_df.mouse_x[cursor_in_target_index_in_mouse],
+                                name='Cursor in Target X',
+                                mode='markers'
+                            )
+                    timeseries_data.append(cursor_in_target_x_trace)
+
+                    cursor_in_target_y_trace = go.Scatter(
+                                x=mouse_datetime[cursor_in_target_index_in_mouse],
+                                y=mouse_df.mouse_y[cursor_in_target_index_in_mouse],
+                                name='Cursor in Target Y',
+                                mode='markers'
+                            )
+                    timeseries_data.append(cursor_in_target_y_trace)
+
+
+                    valid_click_x_trace = go.Scatter(
+                                x=mouse_datetime[valid_click_index_in_mouse],
+                                y=mouse_df.mouse_x[valid_click_index_in_mouse],
+                                name='Valid Clicks X',
+                                mode='markers'
+                            )
+                    timeseries_data.append(valid_click_x_trace)
+
+                    valid_click_y_trace = go.Scatter(
+                                x=mouse_datetime[valid_click_index_in_mouse],
+                                y=mouse_df.mouse_y[valid_click_index_in_mouse],
+                                name='Valid Clicks Y',
+                                mode='markers'
+                            )
+                    timeseries_data.append(valid_click_y_trace)
                 except:
                     mouse_rand_trace = go.Scatter(
                                         x=np.arange(10),
@@ -395,7 +455,11 @@ def parse_files(task_files):
             if 'Mic' in file:
                 try:
                     fname = glob.glob(op.join(file_loc, file))[0]
-                    fdata = read_hdf5(fname)['device_data']
+                    complete_file = read_hdf5(fname)
+                    fdata = complete_file['device_data']
+                    mdata = complete_file['marker']
+
+                    dt_corr = int(float(mdata['time_series'][0][0].split('_')[-1]) - mdata['time_stamps'][0]) # datetime-correction factor : time correction offset for correcting LSL time to local time
 
                     audio_tstmp = fdata['time_stamps']
 
@@ -415,8 +479,10 @@ def parse_files(task_files):
                     #print(audio_df.head(n=2))
                     audio_df = audio_df.iloc[::20,:]
 
+                    audio_datetime = audio_df.timestamps.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
+
                     trace7 = go.Scatter(
-                                x=[datetime.fromtimestamp(timestamp) for timestamp in audio_df.timestamps],
+                                x=audio_datetime,
                                 y=audio_df['amplitude'],
                                 name='Audio Trace',
                                 mode='lines',
@@ -440,7 +506,7 @@ def parse_files(task_files):
                     #print(specgram_trace)
 
                     audio_trace = go.Scatter(
-                                x=[timestamp-audio_df.timestamps[0] for timestamp in audio_df.timestamps],
+                                x=audio_datetime,
                                 y=audio_df['amplitude'],
                                 name='Audio Trace',
                                 mode='lines',
@@ -483,12 +549,15 @@ def parse_files(task_files):
             if 'Mbient_RH' in file:
                 try:
                     fname = glob.glob(op.join(file_loc, file))[0]
-                    fdata = read_hdf5(fname)['device_data']
+                    complete_file = read_hdf5(fname)
+                    fdata = complete_file['device_data']
+                    mdata = complete_file['marker']
 
                     imu_df = pd.DataFrame(fdata['time_series'][:,[1,2,3,4,5,6]], columns=['acc_x','acc_y','acc_z','gyr_x','gyr_y','gyr_z'])
                     imu_df['timestamps'] = fdata['time_stamps']
                     #print(imu_df.head(n=2))
-                    imu_datetime = [datetime.fromtimestamp(timestamp) for timestamp in imu_df.timestamps]
+                    dt_corr = int(float(mdata['time_series'][0][0].split('_')[-1]) - mdata['time_stamps'][0]) # datetime-correction factor : time correction offset for correcting LSL time to local time
+                    imu_datetime = imu_df.timestamps.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
 
                     trace8 = go.Scatter(
                                 x=imu_datetime,
@@ -563,7 +632,7 @@ def parse_files(task_files):
 
 
 # --- Creating all_files list --- #
-all_file_list = get_file_list(nb_data_df)
+#all_file_list = get_file_list(nb_data_df)
 
 # --- Reading face landmark file --- #
 face_landmark_data = read_hdf5(face_landmark_filename)['device_data']
@@ -649,7 +718,7 @@ app.layout = html.Div([
                                 * Click legend to toggle trace visibility
                                 * Double click any legend to toggle all traces
                                 ''',style={'padding-left':'8%'}),
-                                dcc.Loading(id="loading-indicator", children=None, type="graph", fullscreen=False),
+                                dcc.Loading(id="loading-indicator", children=None, type="default", fullscreen=False),
                                 dcc.Graph(id="timeseries_graph")
                                 ]),
                         html.Hr(),
@@ -786,9 +855,11 @@ def update_table(subid_value, date_value, task_value, clinical_value):
 def update_table(task_session_value):
     task_files=[]
     try:
-        for i in all_file_list:
-            if task_session_value in i:
-                task_files.append(i)
+        tsv = task_session_value.split('_') # task session value split
+        task_files = nb_data_df[(nb_data_df['subject_id']==tsv[0]) & (nb_data_df['session_datetime'].map(tuple)==tuple([datetime.strptime(tsv[1]+'_'+tsv[2], '%Y-%m-%d_%Hh-%Mm-%Ss')])) & (nb_data_df['tasks']=='_'.join(tsv[3:]))].hdf5_files.tolist()
+        # for i in all_file_list:
+        #     if task_session_value in i:
+        #         task_files.append(i)
         if len(task_files) > 0:
             task_files = np.sort(list(set(task_files)))
         else:
@@ -908,7 +979,7 @@ def on_button_click(n_clicks_timestamp):
     nb_data_df, sub_id_list, session_date_list, task_list, clinical_list = rebuild_master_data_table(sql_query_cmd)
     
     # Generate new all_file_list from new nb_data_df
-    all_file_list = get_file_list(nb_data_df)
+    #all_file_list = get_file_list(nb_data_df)
 
     updated_sub_id_list_options = [ {'label': x, 'value': x} for x in sub_id_list]
     updated_session_date_list_options = [ {'label': x, 'value': x} for x in session_date_list]
@@ -921,6 +992,6 @@ def on_button_click(n_clicks_timestamp):
 
 
 if __name__ == '__main__':
-    #context = ('/home/sid/.db_secrets/nb_cert.pem', '/home/sid/.db_secrets/nb_key.pem')
-    context = ('/usr/etc/certs/server.crt', '/usr/etc/certs/server.key')
+    context = ('/home/sid/.db_secrets/nb_cert.pem', '/home/sid/.db_secrets/nb_key.pem')
+    #context = ('/usr/etc/certs/server.crt', '/usr/etc/certs/server.key')
     app.run_server(host='0.0.0.0', port='8050', debug=True, ssl_context=context)
