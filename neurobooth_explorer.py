@@ -223,6 +223,68 @@ def get_task_session_files(fdf):
     return list(set(fnl))
 
 
+# --- Function to get button presses for DSC task --- #
+def get_DSC_button_presses(dsc_filename, fig):
+    try:
+        fname = glob.glob(op.join(file_loc, dsc_filename))[0]
+    except:
+        print('file not found at location:', file_loc, 'filename :', dsc_filename)
+    marker = read_hdf5(fname)['marker']
+
+    new_symbol_local_ts = []
+    button_press_local_ts = []
+    button_release_local_ts = []
+    for txt in marker['time_series']:
+        if 'Trial-start' in txt[0]:
+            new_symbol_local_ts.append(float(txt[0].split('_')[-1]))
+        elif 'Trial-res_0' in txt[0]:
+            button_press_local_ts.append(float(txt[0].split('_')[-1]))
+        elif 'Trial-res_1' in txt[0]:
+            button_release_local_ts.append(float(txt[0].split('_')[-1]))
+
+    for i in new_symbol_local_ts:    
+        x=datetime.fromtimestamp(i)
+        fig.add_shape(type="line",
+            x0=x, y0=0, x1=x, y1=1400,
+            line=dict(
+                color="Green",
+                width=1,
+                dash="solid",
+            )
+        )
+
+    for i in button_press_local_ts:    
+        x=datetime.fromtimestamp(i)
+        fig.add_shape(type="line",
+            x0=x, y0=0, x1=x, y1=1400,
+            line=dict(
+                color="Red",
+                width=1,
+                dash="dash",
+            )
+        )
+
+    for i in button_release_local_ts:    
+        x=datetime.fromtimestamp(i)
+        fig.add_shape(type="line",
+            x0=x, y0=0, x1=x, y1=1400,
+            line=dict(
+                color="Blue",
+                width=1,
+                dash="dot",
+            )
+        )
+    fig.update_shapes(dict(xref='x', yref='y'))
+
+    fig.add_trace(go.Scatter(
+        x=[datetime.fromtimestamp(new_symbol_local_ts[0]), datetime.fromtimestamp(button_press_local_ts[0]), datetime.fromtimestamp(button_release_local_ts[0])],
+        y=[-10,-10,-10],
+        text=['New Symbol', 'Button Press', 'Button Release'],
+        mode="text",
+        name='Annotation Text'
+    ))
+    return fig
+
 # --- Function to parse task session files and return traces --- #
 def parse_files(task_files):
 
@@ -902,6 +964,11 @@ def update_table(task_session_value):
             side="right"
         )
     )
+
+    for filename in task_files:
+        if ('_DSC_' in filename) & ('Eye' in filename):
+            timeseries_fig = get_DSC_button_presses(filename, timeseries_fig)
+
     timeseries_fig.update_xaxes(tickangle=45, tickfont={'size':14}, showline=True, linewidth=1, linecolor='black', mirror=True, title_font={'size':18})
     timeseries_fig.update_yaxes(tickfont={'size':12})
     
@@ -992,6 +1059,7 @@ def on_button_click(n_clicks_timestamp):
 
 
 if __name__ == '__main__':
-    context = ('/home/sid/.db_secrets/nb_cert.pem', '/home/sid/.db_secrets/nb_key.pem')
-    #context = ('/usr/etc/certs/server.crt', '/usr/etc/certs/server.key')
+    #context = ('/home/sid/.db_secrets/nb_cert.pem', '/home/sid/.db_secrets/nb_key.pem')
+    context = ('/usr/etc/certs/server.crt', '/usr/etc/certs/server.key')
     app.run_server(host='0.0.0.0', port='8050', debug=True, ssl_context=context)
+    #app.run_server(host='127.0.0.1', port='8050', debug=True)
