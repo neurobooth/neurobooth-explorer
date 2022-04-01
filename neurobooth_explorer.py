@@ -143,11 +143,11 @@ def calculate_age(dob):
 ###### Building Master Data Table ######
 
 sql_query_cmd = """
-SELECT subject.subject_id, subject.gender_at_birth, subject.date_of_birth_subject, tech_obs_log.date_times, tech_obs_log.tech_obs_log_id,
-       tech_obs_log.tech_obs_id, sensor_file_log.sensor_file_path
-FROM ((tech_obs_log
-INNER JOIN sensor_file_log ON tech_obs_log.tech_obs_log_id = sensor_file_log.tech_obs_log_id)
-INNER JOIN subject ON tech_obs_log.subject_id = subject.subject_id);
+SELECT subject.subject_id, subject.gender_at_birth, subject.date_of_birth_subject, log_task.date_times, log_task.log_task_id,
+       log_task.task_id, log_sensor_file.sensor_file_path
+FROM ((log_task
+INNER JOIN log_sensor_file ON log_task.log_task_id = log_sensor_file.log_task_id)
+INNER JOIN subject ON log_task.subject_id = subject.subject_id);
 """
 
 def rebuild_master_data_table(sql_query_cmd):
@@ -223,12 +223,45 @@ def get_task_session_files(fdf):
     return list(set(fnl))
 
 
+# --- Function for gettint start and end task times for movement tasks --- #
+def get_movement_task_start_end_times(mv_filename, fig):
+    try:
+        fname = glob.glob(op.join(file_loc, mv_filename))[0]
+    except:
+        print('file not found at location:', file_loc, 'filename :', mv_filename)
+        return fig
+    marker = read_hdf5(fname)['marker']
+
+    start_local_ts = []
+    end_local_ts = []
+    for txt in marker['time_series']:
+        if 'task_start' in txt[0]:
+            start_local_ts.append(float(txt[0].split('_')[-1]))
+        elif 'task_end' in txt[0]:
+            end_local_ts.append(float(txt[0].split('_')[-1]))
+
+    for start,end in zip(start_local_ts, end_local_ts):    
+        xstart=datetime.fromtimestamp(start)
+        xend=datetime.fromtimestamp(end)
+        fig.add_shape(type="rect",
+                      xref="x",
+                      yref="paper",
+                      x0=xstart, y0=0, x1=xend, y1=1,
+                      line=dict(color="rgba(0,0,0,0)",width=3,),
+                      fillcolor='rgba(255,0,255,0.1)',
+                      layer="below"
+        )
+    
+    return fig
+
+
 # --- Function to get button presses for DSC task --- #
 def get_DSC_button_presses(dsc_filename, fig):
     try:
         fname = glob.glob(op.join(file_loc, dsc_filename))[0]
     except:
         print('file not found at location:', file_loc, 'filename :', dsc_filename)
+        return fig
     marker = read_hdf5(fname)['marker']
 
     new_symbol_local_ts = []
@@ -276,13 +309,26 @@ def get_DSC_button_presses(dsc_filename, fig):
         )
     fig.update_shapes(dict(xref='x', yref='y'))
 
+    for start,end in zip(new_symbol_local_ts, button_release_local_ts):    
+        xstart=datetime.fromtimestamp(start)
+        xend=datetime.fromtimestamp(end)
+        fig.add_shape(type="rect",
+                      xref="x",
+                      yref="y",
+                      x0=xstart, y0=0, x1=xend, y1=1400,
+                      line=dict(color="rgba(0,0,0,0)",width=3,),
+                      fillcolor='rgba(255,0,255,0.1)',
+                      layer="below"
+        )
+
     fig.add_trace(go.Scatter(
         x=[datetime.fromtimestamp(new_symbol_local_ts[0]), datetime.fromtimestamp(button_press_local_ts[0]), datetime.fromtimestamp(button_release_local_ts[0])],
-        y=[-10,-10,-10],
+        y=[-10,-30,-60],
         text=['New Symbol', 'Button Press', 'Button Release'],
         mode="text",
         name='Annotation Text'
-    ))
+        )
+    )
     return fig
 
 # --- Function to parse task session files and return traces --- #
@@ -568,7 +614,7 @@ def parse_files(task_files):
                     #print(specgram_trace)
 
                     audio_trace = go.Scatter(
-                                x=audio_datetime,
+                                x= audio_df.timestamps.apply(lambda x: x-audio_df.timestamps[0]), #audio_datetime,
                                 y=audio_df['amplitude'],
                                 name='Audio Trace',
                                 mode='lines',
@@ -968,6 +1014,11 @@ def update_table(task_session_value):
     for filename in task_files:
         if ('_DSC_' in filename) & ('Eye' in filename):
             timeseries_fig = get_DSC_button_presses(filename, timeseries_fig)
+    
+    for movement_task in ['finger_nose', 'foot_tapping', 'sit_to_stand', 'altern_hand_mov', 'passage']:
+        for filename in task_files:
+            if (movement_task in filename) & ('Mbient_RH' in filename):
+                timeseries_fig = get_movement_task_start_end_times(filename, timeseries_fig)
 
     timeseries_fig.update_xaxes(tickangle=45, tickfont={'size':14}, showline=True, linewidth=1, linecolor='black', mirror=True, title_font={'size':18})
     timeseries_fig.update_yaxes(tickfont={'size':12})
@@ -1040,7 +1091,7 @@ def on_button_click(n_clicks_timestamp):
     global session_date_list
     global task_list
     global clinical_list
-    global all_file_list
+    #global all_file_list
 
     # Retrieving new data from database
     nb_data_df, sub_id_list, session_date_list, task_list, clinical_list = rebuild_master_data_table(sql_query_cmd)
