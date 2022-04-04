@@ -375,7 +375,8 @@ def parse_files(task_files):
 
                     et_df = pd.DataFrame(fdata['time_series'][:, [0,1,3,4]], columns=['R_gaze_x','R_gaze_y','L_gaze_x','L_gaze_y'])
                     et_df['timestamps'] = fdata['time_stamps']
-                    #print(et_df.head(n=2))
+                    fs = int(1/np.median(np.diff(et_df.timestamps)))
+                    #print('Eyelink Sampling Rate =', fs)
 
                     dt_corr = int(float(mdata['time_series'][0][0].split('_')[-1]) - mdata['time_stamps'][0]) # datetime-correction factor : time correction offset for correcting LSL time to local time
                     et_datetime = et_df.timestamps.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
@@ -383,7 +384,7 @@ def parse_files(task_files):
                     trace1 = go.Scatter(
                                 x=et_datetime,
                                 y=et_df['R_gaze_x'],
-                                name='Right Eye Gaze X',
+                                name='Right Eye Gaze X : fs = '+str(fs),
                                 mode='lines'
                             )
                     timeseries_data.append(trace1)
@@ -479,7 +480,8 @@ def parse_files(task_files):
 
                     mouse_df = pd.DataFrame(fdata['time_series'][:,:], columns=['mouse_x','mouse_y','clicks'])
                     mouse_df['timestamps'] = fdata['time_stamps']
-                    #print(mouse_df.head(n=2))
+                    fs = int(1/np.median(np.diff(mouse_df.timestamps)))
+                    #print('Mouse Sampling Rate =', fs)
 
                     dt_corr = int(float(mdata['time_series'][0][0].split('_')[-1]) - mdata['time_stamps'][0]) # datetime-correction factor : time correction offset for correcting LSL time to local time
                     mouse_datetime = np.array(mouse_df.timestamps.apply(lambda x: datetime.fromtimestamp(dt_corr+x)))
@@ -488,7 +490,7 @@ def parse_files(task_files):
                     trace5 = go.Scatter(
                                 x=mouse_datetime[::10],
                                 y=mouse_df['mouse_x'][::10],
-                                name='Mouse X',
+                                name='Mouse X : fs = '+str(fs),
                                 mode='lines',
                                 visible='legendonly'
                             )
@@ -584,7 +586,9 @@ def parse_files(task_files):
 
                     audio_df = pd.DataFrame(audio_ts_full, columns=['amplitude'])
                     audio_df['timestamps'] = audio_tstmp_full
-                    #print(audio_df.head(n=2))
+                    fs = int(1/np.median(np.diff(audio_df.timestamps)))
+                    #print('Audio Sampling Rate =', fs)
+
                     audio_df = audio_df.iloc[::20,:]
 
                     audio_datetime = audio_df.timestamps.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
@@ -592,7 +596,7 @@ def parse_files(task_files):
                     trace7 = go.Scatter(
                                 x=audio_datetime,
                                 y=audio_df['amplitude'],
-                                name='Audio Trace',
+                                name='Audio Trace : fs = '+str(fs),
                                 mode='lines',
                                 visible='legendonly',
                                 yaxis="y2"
@@ -663,14 +667,16 @@ def parse_files(task_files):
 
                     imu_df = pd.DataFrame(fdata['time_series'][:,[1,2,3,4,5,6]], columns=['acc_x','acc_y','acc_z','gyr_x','gyr_y','gyr_z'])
                     imu_df['timestamps'] = fdata['time_stamps']
-                    #print(imu_df.head(n=2))
+                    fs = int(1/np.median(np.diff(imu_df.timestamps)))
+                    #print('IMU Sampling Rate =', fs)
+
                     dt_corr = int(float(mdata['time_series'][0][0].split('_')[-1]) - mdata['time_stamps'][0]) # datetime-correction factor : time correction offset for correcting LSL time to local time
                     imu_datetime = imu_df.timestamps.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
 
                     trace8 = go.Scatter(
                                 x=imu_datetime,
                                 y=imu_df['acc_x'],
-                                name='Acceleration X',
+                                name='Acceleration X : fs = '+str(fs),
                                 mode='lines',
                                 visible='legendonly',
                                 yaxis="y2"
@@ -983,7 +989,7 @@ def update_table(task_session_value):
 
     timeseries_layout = go.Layout(
                 margin={'l': 50, 'b': 30, 't': 30, 'r': 50},
-                height=500,
+                height=520,
                 xaxis={
                     'title':'Time',
                     'showgrid':False,
@@ -1110,7 +1116,7 @@ def on_button_click(n_clicks_timestamp):
 
 
 if __name__ == '__main__':
-    #context = ('/home/sid/.db_secrets/nb_cert.pem', '/home/sid/.db_secrets/nb_key.pem')
+    # context = ('/home/sid/.db_secrets/nb_cert.pem', '/home/sid/.db_secrets/nb_key.pem')
     context = ('/usr/etc/certs/server.crt', '/usr/etc/certs/server.key')
     app.run_server(host='0.0.0.0', port='8050', debug=True, ssl_context=context)
     #app.run_server(host='127.0.0.1', port='8050', debug=True)
