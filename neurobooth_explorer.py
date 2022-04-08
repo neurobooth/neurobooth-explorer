@@ -259,10 +259,10 @@ def get_movement_task_start_end_times(mv_filename, fig):
 def get_DSC_button_presses(dsc_filename, fig):
     try:
         fname = glob.glob(op.join(file_loc, dsc_filename))[0]
+        marker = read_hdf5(fname)['marker']
     except:
         print('file not found at location:', file_loc, 'filename :', dsc_filename)
         return fig
-    marker = read_hdf5(fname)['marker']
 
     new_symbol_local_ts = []
     button_press_local_ts = []
@@ -853,8 +853,8 @@ app.layout = html.Div([
                                             ], style={'width':'79%', 'padding-left':'8%', 'padding-right':'5%', 'padding-bottom':'1%'})
                                         ], className="nine columns", style={'width':'70%', 'display':'inline-block'}),#, 'padding-left':'3%', 'padding-right':'2%'}),
                                 html.Div([
-                                        dcc.Graph(id="face_landmarks_with_slider", style={'horizontalAlign':'left'}),
-                                        ], className="three columns", style={'width':'30%', 'display':'inline-block', 'verticalAlign':'center', 'horizontalAlign':'left'})#, 'padding-left':'2%', 'padding-right':'3%'
+                                        dcc.Graph(id="face_landmarks_with_slider", style={'width':'50%', "margin": "auto"}),# 'horizontalAlign':'middle'}),
+                                        ], className="three columns", style={'width':'30%', 'display':'inline-block', 'verticalAlign':'center', 'horizontalAlign':'center'})#, 'padding-left':'2%', 'padding-right':'3%'
                                 ]),
                         html.Hr(),
                         html.Div([
