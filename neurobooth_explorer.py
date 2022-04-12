@@ -598,6 +598,7 @@ def parse_files(task_files):
                                 y=audio_df['amplitude'],
                                 name='Audio Trace : fs = '+str(fs),
                                 mode='lines',
+                                opacity=0.5,
                                 visible='legendonly',
                                 yaxis="y2"
                             )
@@ -853,7 +854,7 @@ app.layout = html.Div([
                                             ], style={'width':'79%', 'padding-left':'8%', 'padding-right':'5%', 'padding-bottom':'1%'})
                                         ], className="nine columns", style={'width':'70%', 'display':'inline-block'}),#, 'padding-left':'3%', 'padding-right':'2%'}),
                                 html.Div([
-                                        dcc.Graph(id="face_landmarks_with_slider", style={'width':'50%', "margin": "auto"}),# 'horizontalAlign':'middle'}),
+                                    dcc.Graph(id="face_landmarks_with_slider", style={'horizontalAlign':'left'}),
                                         ], className="three columns", style={'width':'30%', 'display':'inline-block', 'verticalAlign':'center', 'horizontalAlign':'center'})#, 'padding-left':'2%', 'padding-right':'3%'
                                 ]),
                         html.Hr(),
