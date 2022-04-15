@@ -206,6 +206,13 @@ nb_data_df, sub_id_list, session_date_list, task_list, clinical_list = rebuild_m
 #                 file_list.append(file)
 #     return file_list
 
+# --- Function to generate empty file length dataframe --- #
+def generate_empty_file_len_df():
+    len_df = pd.DataFrame()
+    for col in ['Eyelink', 'Mouse', 'IMU', 'Audio']:
+        len_df[col] = np.array([np.nan])
+    return len_df
+
 
 # --- Function to extract task session file list from datafarme --- #
 def get_task_session_files(fdf):
@@ -235,22 +242,23 @@ def get_movement_task_start_end_times(mv_filename, fig):
     start_local_ts = []
     end_local_ts = []
     for txt in marker['time_series']:
-        if 'task_start' in txt[0]:
+        if txt[0][:10] == 'Task_start':
             start_local_ts.append(float(txt[0].split('_')[-1]))
-        elif 'task_end' in txt[0]:
+        elif txt[0][:8] == 'Task_end':
             end_local_ts.append(float(txt[0].split('_')[-1]))
 
-    for start,end in zip(start_local_ts, end_local_ts):    
-        xstart=datetime.fromtimestamp(start)
-        xend=datetime.fromtimestamp(end)
-        fig.add_shape(type="rect",
-                      xref="x",
-                      yref="paper",
-                      x0=xstart, y0=0, x1=xend, y1=1,
-                      line=dict(color="rgba(0,0,0,0)",width=3,),
-                      fillcolor='rgba(255,0,255,0.1)',
-                      layer="below"
-        )
+    if start_local_ts and end_local_ts:
+        for start,end in zip(start_local_ts, end_local_ts):    
+            xstart=datetime.fromtimestamp(start)
+            xend=datetime.fromtimestamp(end)
+            fig.add_shape(type="rect",
+                        xref="x",
+                        yref="paper",
+                        x0=xstart, y0=0, x1=xend, y1=1,
+                        line=dict(color="rgba(0,0,0,0)",width=3,),
+                        fillcolor='rgba(255,0,255,0.1)',
+                        layer="below"
+            )
     
     return fig
 
@@ -259,76 +267,78 @@ def get_movement_task_start_end_times(mv_filename, fig):
 def get_DSC_button_presses(dsc_filename, fig):
     try:
         fname = glob.glob(op.join(file_loc, dsc_filename))[0]
-        marker = read_hdf5(fname)['marker']
     except:
         print('file not found at location:', file_loc, 'filename :', dsc_filename)
         return fig
+    marker = read_hdf5(fname)['marker']
 
     new_symbol_local_ts = []
     button_press_local_ts = []
     button_release_local_ts = []
     for txt in marker['time_series']:
-        if 'Trial-start' in txt[0]:
+        if txt[0][:11] == 'Trial_start':
             new_symbol_local_ts.append(float(txt[0].split('_')[-1]))
-        elif 'Trial-res_0' in txt[0]:
+        elif txt[0][:14] == 'Response_start':
             button_press_local_ts.append(float(txt[0].split('_')[-1]))
-        elif 'Trial-res_1' in txt[0]:
+        elif txt[0][:12] == 'Response_end':
             button_release_local_ts.append(float(txt[0].split('_')[-1]))
 
-    for i in new_symbol_local_ts:    
-        x=datetime.fromtimestamp(i)
-        fig.add_shape(type="line",
-            x0=x, y0=0, x1=x, y1=1400,
-            line=dict(
-                color="Green",
-                width=1,
-                dash="solid",
+    if new_symbol_local_ts and button_press_local_ts and button_release_local_ts:
+        for i in new_symbol_local_ts:    
+            x=datetime.fromtimestamp(i)
+            fig.add_shape(type="line",
+                x0=x, y0=0, x1=x, y1=1400,
+                line=dict(
+                    color="Green",
+                    width=1,
+                    dash="solid",
+                )
+            )
+
+        for i in button_press_local_ts:    
+            x=datetime.fromtimestamp(i)
+            fig.add_shape(type="line",
+                x0=x, y0=0, x1=x, y1=1400,
+                line=dict(
+                    color="Red",
+                    width=1,
+                    dash="dash",
+                )
+            )
+
+        for i in button_release_local_ts:    
+            x=datetime.fromtimestamp(i)
+            fig.add_shape(type="line",
+                x0=x, y0=0, x1=x, y1=1400,
+                line=dict(
+                    color="Blue",
+                    width=1,
+                    dash="dot",
+                )
+            )
+        fig.update_shapes(dict(xref='x', yref='y'))
+
+        for start,end in zip(new_symbol_local_ts, button_release_local_ts):    
+            xstart=datetime.fromtimestamp(start)
+            xend=datetime.fromtimestamp(end)
+            fig.add_shape(type="rect",
+                        xref="x",
+                        yref="y",
+                        x0=xstart, y0=0, x1=xend, y1=1400,
+                        line=dict(color="rgba(0,0,0,0)",width=3,),
+                        fillcolor='rgba(255,0,255,0.1)',
+                        layer="below"
+            )
+
+        fig.add_trace(go.Scatter(
+            x=[datetime.fromtimestamp(new_symbol_local_ts[0]), datetime.fromtimestamp(button_press_local_ts[0]), datetime.fromtimestamp(button_release_local_ts[0])],
+            y=[-10,-30,-60],
+            text=['New Symbol', 'Button Press', 'Button Release'],
+            mode="text",
+            name='Annotation Text'
             )
         )
-
-    for i in button_press_local_ts:    
-        x=datetime.fromtimestamp(i)
-        fig.add_shape(type="line",
-            x0=x, y0=0, x1=x, y1=1400,
-            line=dict(
-                color="Red",
-                width=1,
-                dash="dash",
-            )
-        )
-
-    for i in button_release_local_ts:    
-        x=datetime.fromtimestamp(i)
-        fig.add_shape(type="line",
-            x0=x, y0=0, x1=x, y1=1400,
-            line=dict(
-                color="Blue",
-                width=1,
-                dash="dot",
-            )
-        )
-    fig.update_shapes(dict(xref='x', yref='y'))
-
-    for start,end in zip(new_symbol_local_ts, button_release_local_ts):    
-        xstart=datetime.fromtimestamp(start)
-        xend=datetime.fromtimestamp(end)
-        fig.add_shape(type="rect",
-                      xref="x",
-                      yref="y",
-                      x0=xstart, y0=0, x1=xend, y1=1400,
-                      line=dict(color="rgba(0,0,0,0)",width=3,),
-                      fillcolor='rgba(255,0,255,0.1)',
-                      layer="below"
-        )
-
-    fig.add_trace(go.Scatter(
-        x=[datetime.fromtimestamp(new_symbol_local_ts[0]), datetime.fromtimestamp(button_press_local_ts[0]), datetime.fromtimestamp(button_release_local_ts[0])],
-        y=[-10,-30,-60],
-        text=['New Symbol', 'Button Press', 'Button Release'],
-        mode="text",
-        name='Annotation Text'
-        )
-    )
+    
     return fig
 
 # --- Function to parse task session files and return traces --- #
@@ -336,6 +346,7 @@ def parse_files(task_files):
 
     timeseries_data=[]
     specgram_data=[]
+    len_df = generate_empty_file_len_df()
 
     if len(task_files)==0 or len(task_files)==1:
         ts_rand_trace = go.Scatter(
@@ -362,9 +373,10 @@ def parse_files(task_files):
         specgram_data.append(audio_rand_trace)
         specgram_data.append(vert_trace)
 
-        return timeseries_data, specgram_data
+        return timeseries_data, specgram_data, len_df
     
     else:
+
         for file in task_files:
             if 'Eyelink' in file:
                 try:
@@ -372,6 +384,8 @@ def parse_files(task_files):
                     complete_file = read_hdf5(fname)
                     fdata = complete_file['device_data']
                     mdata = complete_file['marker']
+
+                    len_df.at[0, 'Eyelink'] = len(fdata['time_series'])
 
                     et_df = pd.DataFrame(fdata['time_series'][:, [0,1,3,4]], columns=['R_gaze_x','R_gaze_y','L_gaze_x','L_gaze_y'])
                     et_df['timestamps'] = fdata['time_stamps']
@@ -419,52 +433,108 @@ def parse_files(task_files):
                     timeseries_data.append(trace4)
                     #print(trace4)
                     
-                    # Adding target trace - target trace is always extracted from eyelink marker data
-                    ts_ix = []
-                    x_coord = []
-                    y_coord = []
-                    for ix, txt in enumerate(mdata['time_series']):
-                        if '!V TARGET_POS' in txt[0]:
-                            ts_ix.append(ix)
-                            l = txt[0].split(' ')
-                            x_coord.append(int(l[3][:-1]))
-                            y_coord.append(int(l[4]))
+                    if 'MOT' not in file:
+                        # Adding target trace - target trace is always extracted from eyelink marker data
+                        ts_ix = []
+                        x_coord = []
+                        y_coord = []
+                        for ix, txt in enumerate(mdata['time_series']):
+                            if '!V TARGET_POS' in txt[0]:
+                                ts_ix.append(ix)
+                                l = txt[0].split(' ')
+                                x_coord.append(int(l[3][:-1]))
+                                y_coord.append(int(l[4]))
 
-                    ctrl_ts = mdata['time_stamps'][ts_ix]
+                        ctrl_ts = mdata['time_stamps'][ts_ix]
+                            
+                        target_pos_df = pd.DataFrame()
+                        target_pos_df['ctrl_ts'] = ctrl_ts
+                        target_pos_df['x_pos'] = x_coord
+                        target_pos_df['y_pos'] = y_coord
+                        #print(target_pos_df.head(n=2))
+                        target_datetime = target_pos_df.ctrl_ts.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
+
+                        target_x_trace = go.Scatter(
+                                    x=target_datetime,
+                                    y=(target_pos_df['x_pos']),
+                                    name='Target X',
+                                    line={'shape': 'hv'},
+                                    mode='lines',
+                                    visible='legendonly',
+                                )
+                        timeseries_data.append(target_x_trace)
+
+                        target_y_trace = go.Scatter(
+                                    x=target_datetime,
+                                    y=(target_pos_df['y_pos']),
+                                    name='Target Y',
+                                    line={'shape': 'hv'},
+                                    mode='lines',
+                                    visible='legendonly',
+                                )
+                        timeseries_data.append(target_y_trace)
+                        # except:
+                        #     pass
+                    elif 'MOT' in  file:
+                        target_dict = dict()
+                        for i in range(10):
+                            target_str = 'target_'+str(i)
+                            target_dict[target_str] = []
                         
-                    target_pos_df = pd.DataFrame()
-                    target_pos_df['ctrl_ts'] = ctrl_ts
-                    target_pos_df['x_pos'] = x_coord
-                    target_pos_df['y_pos'] = y_coord
-                    #print(target_pos_df.head(n=2))
-                    target_datetime = target_pos_df.ctrl_ts.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
+                        #target_dt = np.array([datetime.fromtimestamp(dt_corr + timestamp) for timestamp in mdata['time_stamps']])
+                        target_dt = et_datetime
 
-                    target_x_trace = go.Scatter(
-                                x=target_datetime,
-                                y=(target_pos_df['x_pos']),
-                                name='Target X',
-                                line={'shape': 'hv'},
-                                mode='lines',
-                                visible='legendonly',
-                            )
-                    timeseries_data.append(target_x_trace)
+                        # this ugly piece of code runs faster than beautiful code since the loop runs only once
+                        for ix, txt in enumerate(mdata['time_series']):
+                            if '!V TARGET_POS' in txt[0]:
+                                txt_split = txt[0].split(' ') 
+                                if txt_split[2]=='target_0':
+                                    target_dict['target_0'].append([target_dt[ix], int(txt_split[3][:-1]), int(txt_split[4])])
+                                elif txt_split[2]=='target_1':
+                                    target_dict['target_1'].append([target_dt[ix], int(txt_split[3][:-1]), int(txt_split[4])])
+                                elif txt_split[2]=='target_2':
+                                    target_dict['target_2'].append([target_dt[ix], int(txt_split[3][:-1]), int(txt_split[4])])
+                                elif txt_split[2]=='target_3':
+                                    target_dict['target_3'].append([target_dt[ix], int(txt_split[3][:-1]), int(txt_split[4])])
+                                elif txt_split[2]=='target_4':
+                                    target_dict['target_4'].append([target_dt[ix], int(txt_split[3][:-1]), int(txt_split[4])])
+                                elif txt_split[2]=='target_5':
+                                    target_dict['target_5'].append([target_dt[ix], int(txt_split[3][:-1]), int(txt_split[4])])
+                                elif txt_split[2]=='target_6':
+                                    target_dict['target_6'].append([target_dt[ix], int(txt_split[3][:-1]), int(txt_split[4])])
+                                elif txt_split[2]=='target_7':
+                                    target_dict['target_7'].append([target_dt[ix], int(txt_split[3][:-1]), int(txt_split[4])])
+                                elif txt_split[2]=='target_8':
+                                    target_dict['target_8'].append([target_dt[ix], int(txt_split[3][:-1]), int(txt_split[4])])
+                                elif txt_split[2]=='target_9':
+                                    target_dict['target_9'].append([target_dt[ix], int(txt_split[3][:-1]), int(txt_split[4])])
 
-                    target_y_trace = go.Scatter(
-                                x=target_datetime,
-                                y=(target_pos_df['y_pos']),
-                                name='Target Y',
-                                line={'shape': 'hv'},
+                        for ky in target_dict.keys():
+                            timeseries_data.append(go.Scatter(
+                                x=np.array(target_dict[ky])[:,0],
+                                y=np.array(target_dict[ky])[:,1],
+                                name=ky+' x',
+                                line={"shape": 'hv'},
                                 mode='lines',
+                                opacity=0.3,
                                 visible='legendonly',
+                                )
                             )
-                    timeseries_data.append(target_y_trace)
-                    # except:
-                    #     pass
+                            timeseries_data.append(go.Scatter(
+                                x=np.array(target_dict[ky])[:,0],
+                                y=np.array(target_dict[ky])[:,2],
+                                name=ky+' y',
+                                line={"shape": 'hv'},
+                                mode='lines',
+                                opacity=0.3,
+                                visible='legendonly',
+                                )
+                            )
 
                     #print(timeseries_data)
                 except:
                     eye_rand_trace = go.Scatter(
-                                        x=np.arange(10),
+                                        x=np.array([datetime.fromtimestamp(i) for i in np.arange(10)]),
                                         y=[0]*10,
                                         name='Eye Trace file not found or parsed',
                                         mode='lines'
@@ -477,6 +547,8 @@ def parse_files(task_files):
                     complete_file = read_hdf5(fname)
                     fdata = complete_file['device_data']
                     mdata = complete_file['marker']
+
+                    len_df.at[0, 'Mouse'] = len(fdata['time_series'])
 
                     mouse_df = pd.DataFrame(fdata['time_series'][:,:], columns=['mouse_x','mouse_y','clicks'])
                     mouse_df['timestamps'] = fdata['time_stamps']
@@ -554,7 +626,7 @@ def parse_files(task_files):
                     timeseries_data.append(valid_click_y_trace)
                 except:
                     mouse_rand_trace = go.Scatter(
-                                        x=np.arange(10),
+                                        x=np.array([datetime.fromtimestamp(i) for i in np.arange(10)]),
                                         y=[0.5]*10,
                                         name='Mouse Trace file not found or parsed',
                                         mode='lines',
@@ -568,6 +640,8 @@ def parse_files(task_files):
                     complete_file = read_hdf5(fname)
                     fdata = complete_file['device_data']
                     mdata = complete_file['marker']
+
+                    len_df.at[0, 'Audio'] = len(fdata['time_series'])
 
                     dt_corr = int(float(mdata['time_series'][0][0].split('_')[-1]) - mdata['time_stamps'][0]) # datetime-correction factor : time correction offset for correcting LSL time to local time
 
@@ -636,7 +710,7 @@ def parse_files(task_files):
 
                 except:
                     mic_ts_rand_trace = go.Scatter(
-                                        x=np.arange(10),
+                                        x=np.array([datetime.fromtimestamp(i) for i in np.arange(10)]),
                                         y=[1]*10,
                                         name='Mic trace file not found or parsed',
                                         mode='lines'
@@ -665,6 +739,8 @@ def parse_files(task_files):
                     complete_file = read_hdf5(fname)
                     fdata = complete_file['device_data']
                     mdata = complete_file['marker']
+
+                    len_df.at[0, 'IMU'] = len(fdata['time_series'])
 
                     imu_df = pd.DataFrame(fdata['time_series'][:,[1,2,3,4,5,6]], columns=['acc_x','acc_y','acc_z','gyr_x','gyr_y','gyr_z'])
                     imu_df['timestamps'] = fdata['time_stamps']
@@ -735,7 +811,7 @@ def parse_files(task_files):
                     timeseries_data.append(trace13)
                 except:
                     imu_rand_trace = go.Scatter(
-                                        x=np.arange(10),
+                                        x=np.array([datetime.fromtimestamp(i) for i in np.arange(10)]),
                                         y=[1.5]*10,
                                         name='IMU Trace file not found or parsed',
                                         mode='lines'
@@ -743,7 +819,7 @@ def parse_files(task_files):
                     timeseries_data.append(imu_rand_trace)
         
         print(len(timeseries_data),len(specgram_data))
-        return timeseries_data, specgram_data
+        return timeseries_data, specgram_data, len_df
 
 
 # --- Creating all_files list --- #
@@ -756,6 +832,8 @@ face_landmark_points = face_landmark_data['time_series']
 face_landmark_x = face_landmark_points[::100,:,0]
 face_landmark_y = face_landmark_points[::100,:,1]
 
+# --- Generating empty len_df --- #
+len_df = generate_empty_file_len_df()
 
 app = dash.Dash(__name__)
 auth = dash_auth.BasicAuth(app, USERNAME_PASSWORD_PAIRS)
@@ -826,6 +904,15 @@ app.layout = html.Div([
                                                 ),
                                         ], className="nine columns", style={'width':'55%', 'display':'inline-block', 'padding-left':'3%', 'verticalAlign':'top'}),
                                 ]),
+                        html.Hr(),
+                        html.H4('Data Lengths', style={'textAlign':'center'}),
+                        html.Div(
+                                dash_table.DataTable(
+                                    id='file_length_datatable',
+                                    data=len_df.to_dict('records'),
+                                    columns=[{'name': col, 'id': col} for col in len_df.columns]
+                                ), style={'padding-left':'10%', 'padding-right':'10%'}
+                            ),
                         html.Hr(),
                         html.H3('Explore Time Series', style={'textAlign':'center'}),
                         html.Div([
@@ -965,8 +1052,9 @@ def update_table(subid_value, date_value, task_value, clinical_value):
     Output(component_id='task_session_file_datatable', component_property='columns'),
     Output('timeseries_graph', 'figure'),
     Output('specgram_graph', 'figure'),
-    Output("loading-indicator","children")],
-    [Input("task_session_dropdown", "value")])
+    Output("loading-indicator","children"),
+    Output("file_length_datatable", "data")],
+    Input("task_session_dropdown", "value"))
 def update_table(task_session_value):
     task_files=[]
     try:
@@ -986,7 +1074,8 @@ def update_table(task_session_value):
     data = task_file_df.to_dict('records')
     columns = [{'name': col, 'id': col} for col in task_file_df.columns]
 
-    timeseries_data, specgram_data = parse_files(task_files)
+    timeseries_data, specgram_data, len_df = parse_files(task_files)
+    length_data = len_df.to_dict('records')
 
     timeseries_layout = go.Layout(
                 margin={'l': 50, 'b': 30, 't': 30, 'r': 50},
@@ -1019,8 +1108,10 @@ def update_table(task_session_value):
     )
 
     for filename in task_files:
-        if ('_DSC_' in filename) & ('Eye' in filename):
+        if ('_DSC_' in filename) and ('Eye' in filename):
             timeseries_fig = get_DSC_button_presses(filename, timeseries_fig)
+        if ('MOT' in filename) and ('Eye' in filename):
+            timeseries_fig = get_movement_task_start_end_times(filename, timeseries_fig)
     
     for movement_task in ['finger_nose', 'foot_tapping', 'sit_to_stand', 'altern_hand_mov', 'passage']:
         for filename in task_files:
@@ -1039,7 +1130,7 @@ def update_table(task_session_value):
     specgram_fig = go.Figure(data=specgram_data, layout=specgram_layout)
     specgram_fig.update_layout(legend_x=1, legend_y=1)
 
-    return data, columns, timeseries_fig, specgram_fig, None
+    return data, columns, timeseries_fig, specgram_fig, None, length_data
 
 
 @app.callback(
@@ -1120,4 +1211,4 @@ if __name__ == '__main__':
     # context = ('/home/sid/.db_secrets/nb_cert.pem', '/home/sid/.db_secrets/nb_key.pem')
     context = ('/usr/etc/certs/server.crt', '/usr/etc/certs/server.key')
     app.run_server(host='0.0.0.0', port='8050', debug=True, ssl_context=context)
-    #app.run_server(host='127.0.0.1', port='8050', debug=True)
+    # app.run_server(host='127.0.0.1', port='8050', debug=True)
