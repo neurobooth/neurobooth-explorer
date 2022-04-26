@@ -1121,7 +1121,9 @@ def update_table(task_session_value):
     data = task_file_df.to_dict('records')
     columns = [{'name': col, 'id': col} for col in task_file_df.columns]
 
-    rc_notes_markdown = read_rc_notes(task_session_value.split('_obs')[0])
+    rc_notes_markdown = init_str
+    if task_session_value:
+        rc_notes_markdown = read_rc_notes(task_session_value.split('_obs')[0])
 
     timeseries_data, specgram_data, len_df = parse_files(task_files)
     length_data = len_df.to_dict('records')
