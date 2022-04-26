@@ -230,7 +230,7 @@ def get_task_session_files(fdf):
     return list(set(fnl))
 
 
-# --- Function for gettint start and end task times for movement tasks --- #
+# --- Function for getting start and end task times for movement tasks --- #
 def get_movement_task_start_end_times(mv_filename, fig):
     try:
         fname = glob.glob(op.join(file_loc, mv_filename))[0]
@@ -481,8 +481,7 @@ def parse_files(task_files):
                             target_str = 'target_'+str(i)
                             target_dict[target_str] = []
                         
-                        #target_dt = np.array([datetime.fromtimestamp(dt_corr + timestamp) for timestamp in mdata['time_stamps']])
-                        target_dt = et_datetime
+                        target_dt = np.array([datetime.fromtimestamp(dt_corr + timestamp) for timestamp in mdata['time_stamps']])
 
                         # this ugly piece of code runs faster than beautiful code since the loop runs only once
                         for ix, txt in enumerate(mdata['time_series']):
@@ -822,6 +821,31 @@ def parse_files(task_files):
         return timeseries_data, specgram_data, len_df
 
 
+# --- Function to read RC Notes --- #
+init_str = '''### Clinical Research Coordinator Notes\n \t'''
+def read_rc_notes(task_files):
+    text_markdown=init_str
+    try:
+        rc_notes_fname = task_files[0].split('_obs_')[0] + '_task_1-notes.txt'
+    except:
+        text_markdown += 'Error parsing RC notes file name !! Check file naming convention\n \t'
+        return text_markdown
+    
+    try:
+        fname = glob.glob(op.join(file_loc, rc_notes_fname))[0]
+        text_markdown = init_str
+        with open(fname) as rc_notes_file:
+            for line in rc_notes_file.read():
+                if "\n" in line:
+                    text_markdown += "\n \t"
+                else:
+                    text_markdown += line
+    except:
+        text_markdown += 'Could not read RC notes file\n \t'
+
+    return text_markdown
+
+
 # --- Creating all_files list --- #
 #all_file_list = get_file_list(nb_data_df)
 
@@ -905,14 +929,32 @@ app.layout = html.Div([
                                         ], className="nine columns", style={'width':'55%', 'display':'inline-block', 'padding-left':'3%', 'verticalAlign':'top'}),
                                 ]),
                         html.Hr(),
-                        html.H4('Data Lengths', style={'textAlign':'center'}),
-                        html.Div(
-                                dash_table.DataTable(
-                                    id='file_length_datatable',
-                                    data=len_df.to_dict('records'),
-                                    columns=[{'name': col, 'id': col} for col in len_df.columns]
-                                ), style={'padding-left':'10%', 'padding-right':'10%'}
-                            ),
+                        html.H4('Meta Data', style={'textAlign':'center'}),
+                        html.Div([
+                                html.Div(dcc.Markdown(id="rc_notes_markdown", children=init_str), 
+                                        style={'whiteSpace': 'pre-line',
+                                                'outline':'1px black solid',
+                                                'outline-offset': '-2px',
+                                                'width':'46%',
+                                                'display':'inline-block',
+                                                'horizontalAlign':'left',
+                                                'padding-left':'2%',
+                                                'padding-right':'2%',
+                                                }
+                                ),
+                                html.Div(
+                                        dash_table.DataTable(
+                                            id='file_length_datatable',
+                                            data=len_df.to_dict('records'),
+                                            columns=[{'name': col, 'id': col} for col in len_df.columns],
+                                        ), style={'width':'46%',
+                                                    'display':'inline-block',
+                                                    'verticalAlign':'top',
+                                                    'horizontalAlign':'right',
+                                                    'padding-left':'2%',
+                                                    'padding-right':'2%'}
+                                )
+                        ]),
                         html.Hr(),
                         html.H3('Explore Time Series', style={'textAlign':'center'}),
                         html.Div([
@@ -1053,7 +1095,8 @@ def update_table(subid_value, date_value, task_value, clinical_value):
     Output('timeseries_graph', 'figure'),
     Output('specgram_graph', 'figure'),
     Output("loading-indicator","children"),
-    Output("file_length_datatable", "data")],
+    Output("file_length_datatable", "data"),
+    Output("rc_notes_markdown", "children")],
     Input("task_session_dropdown", "value"))
 def update_table(task_session_value):
     task_files=[]
@@ -1073,6 +1116,8 @@ def update_table(task_session_value):
     
     data = task_file_df.to_dict('records')
     columns = [{'name': col, 'id': col} for col in task_file_df.columns]
+
+    rc_notes_markdown = read_rc_notes(task_files)
 
     timeseries_data, specgram_data, len_df = parse_files(task_files)
     length_data = len_df.to_dict('records')
@@ -1130,7 +1175,7 @@ def update_table(task_session_value):
     specgram_fig = go.Figure(data=specgram_data, layout=specgram_layout)
     specgram_fig.update_layout(legend_x=1, legend_y=1)
 
-    return data, columns, timeseries_fig, specgram_fig, None, length_data
+    return data, columns, timeseries_fig, specgram_fig, None, length_data, rc_notes_markdown
 
 
 @app.callback(
