@@ -823,10 +823,14 @@ def parse_files(task_files):
 
 # --- Function to read RC Notes --- #
 init_str = '''### Clinical Research Coordinator Notes\n \t'''
-def read_rc_notes(task_files):
+def read_rc_notes(task_session_value_split):
     text_markdown=init_str
     try:
-        rc_notes_fname = task_files[0].split('_obs_')[0] + '_task_1-notes.txt'
+        tsv = task_session_value_split.split('_')
+        subj_id = tsv[0]
+        session_date = tsv[1]
+        task = '_'.join(tsv[3:])
+        rc_notes_fname = subj_id+'_'+session_date+'/'+subj_id+'_'+session_date+'-'+task+'_task_1-notes.txt'
     except:
         text_markdown += 'Error parsing RC notes file name !! Check file naming convention\n \t'
         return text_markdown
@@ -1117,7 +1121,7 @@ def update_table(task_session_value):
     data = task_file_df.to_dict('records')
     columns = [{'name': col, 'id': col} for col in task_file_df.columns]
 
-    rc_notes_markdown = read_rc_notes(task_files)
+    rc_notes_markdown = read_rc_notes(task_session_value.split('_obs')[0])
 
     timeseries_data, specgram_data, len_df = parse_files(task_files)
     length_data = len_df.to_dict('records')
