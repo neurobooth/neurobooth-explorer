@@ -1106,10 +1106,10 @@ def update_table(task_session_value):
     task_files=[]
     try:
         tsv = task_session_value.split('_') # task session value split
-        task_files = nb_data_df[(nb_data_df['subject_id']==tsv[0]) & (nb_data_df['session_datetime'].map(tuple)==tuple([datetime.strptime(tsv[1]+'_'+tsv[2], '%Y-%m-%d_%Hh-%Mm-%Ss')])) & (nb_data_df['tasks']=='_'.join(tsv[3:]))].hdf5_files.tolist()
-        # for i in all_file_list:
-        #     if task_session_value in i:
-        #         task_files.append(i)
+        # get hdf5 files which match subject_id, session_date, and task name
+        task_files = nb_data_df[(nb_data_df['subject_id']==tsv[0]) & (nb_data_df['session_date']==datetime.strptime(tsv[1], "%Y-%m-%d").date()) & (nb_data_df['tasks']=='_'.join(tsv[3:]))].hdf5_files.tolist()
+        # then filter for task time because same task can be performed multiple times 
+        task_files = [fil for fil in task_files if tsv[2] in fil]
         if len(task_files) > 0:
             task_files = np.sort(list(set(task_files)))
         else:
