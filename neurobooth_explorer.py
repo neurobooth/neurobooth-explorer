@@ -32,61 +32,17 @@ from scipy import signal
 # ### Comment out section depending on os ###
 # ###########################################
 
-# ### WINDOWS Legion ###
+### WINDOWS Legion ###
 
-# # --- ssh, db cred, variable assignment for Windows 11 on Legion --- #
+# --- ssh, db cred, variable assignment for Windows 11 on Legion --- #
 
-# ### setting data file locations ###
-# file_loc = 'C:\\Users\\siddh\\Desktop\\lab_projects\\Neurobooth_Explorer\\data'
-# face_landmark_filename = 'C:\\Users\\siddh\\Desktop\\repos\\neurobooth-explorer\\facial_landmark_file\\100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
-# ###
-
-# auth_config_file_loc = 'C:\\Users\\siddh\\.db_secrets\\users.txt'
-# auth_config = configparser.ConfigParser()
-# auth_config.read(auth_config_file_loc)
-
-# USERNAME_PASSWORD_PAIRS = dict()
-# for ky in auth_config[auth_config.sections()[0]]:
-#     USERNAME_PASSWORD_PAIRS[ky] = auth_config[auth_config.sections()[0]][ky]
-
-# db_config_file_loc = 'C:\\Users\\siddh\\.db_secrets\\db_secrets.txt'
-# config = configparser.ConfigParser()
-# config.read(db_config_file_loc)
-
-# # Setting db access args #
-# ssh_args = dict(
-#         ssh_address_or_host=config['windows']['ssh_address_or_host'],
-#         ssh_username=config['windows']['ssh_username'],
-#         host_pkey_directories=config['windows']['host_pkey_directories'],
-#         remote_bind_address=(config['windows']['remote_bind_address'], int(config['windows']['remote_bind_address_port'])),
-#         local_bind_address=(config['windows']['local_bind_address'], int(config['windows']['local_bind_address_port'])),
-#         allow_agent=False
-# )
-
-# db_args = dict(
-#     database=config['windows']['database'], user=config['windows']['user'], password=config['windows']['password'],
-#     # host='localhost'
-# )
-
-
-### LINUX P620 and Neurodoor ###
-
-# --- ssh, db cred, variable assignment for Ubuntu on P620 Workstation --- #
-
-# ### setting data file locations ###
-# file_loc = '/home/sid/data'
-# face_landmark_filename = '/home/sid/Desktop/repos/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
-# auth_config_file_loc = '/home/sid/.db_secrets/users.txt'
-# db_config_file_loc = '/home/sid/.db_secrets/db_secrets.txt'
-# ###
-
-### setting data file locations for Neurodoor ###
-file_loc = '/autofs/nas/neurobooth/data'
-face_landmark_filename = '/homes/5/sp1022/repos/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
-auth_config_file_loc = '/homes/5/sp1022/.db_secrets/users.txt'
-db_config_file_loc = '/homes/5/sp1022/.db_secrets/db_secrets.txt'
+### setting data file locations ###
+file_loc = 'C:\\Users\\siddh\\Desktop\\lab_projects\\Neurobooth_Explorer\\data'
+processed_file_loc = 'C:\\Users\\siddh\\Desktop\\lab_projects\\Neurobooth_Explorer\\processed_data'
+face_landmark_filename = 'C:\\Users\\siddh\\Desktop\\repos\\neurobooth-explorer\\facial_landmark_file\\100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
 ###
 
+auth_config_file_loc = 'C:\\Users\\siddh\\.db_secrets\\users.txt'
 auth_config = configparser.ConfigParser()
 auth_config.read(auth_config_file_loc)
 
@@ -94,23 +50,70 @@ USERNAME_PASSWORD_PAIRS = dict()
 for ky in auth_config[auth_config.sections()[0]]:
     USERNAME_PASSWORD_PAIRS[ky] = auth_config[auth_config.sections()[0]][ky]
 
+db_config_file_loc = 'C:\\Users\\siddh\\.db_secrets\\db_secrets.txt'
 config = configparser.ConfigParser()
 config.read(db_config_file_loc)
 
 # Setting db access args #
 ssh_args = dict(
-        ssh_address_or_host=config['linux']['ssh_address_or_host'],
-        ssh_username=config['linux']['ssh_username'],
-        ssh_pkey=config['linux']['ssh_pkey'],
-        remote_bind_address=(config['linux']['remote_bind_address'], int(config['linux']['remote_bind_address_port'])),
-        local_bind_address=(config['linux']['local_bind_address'], int(config['linux']['local_bind_address_port'])),
+        ssh_address_or_host=config['windows']['ssh_address_or_host'],
+        ssh_username=config['windows']['ssh_username'],
+        host_pkey_directories=config['windows']['host_pkey_directories'],
+        remote_bind_address=(config['windows']['remote_bind_address'], int(config['windows']['remote_bind_address_port'])),
+        local_bind_address=(config['windows']['local_bind_address'], int(config['windows']['local_bind_address_port'])),
         allow_agent=False
 )
 
 db_args = dict(
-    database=config['linux']['database'], user=config['linux']['user'], password=config['linux']['password'],
+    database=config['windows']['database'], user=config['windows']['user'], password=config['windows']['password'],
     # host='localhost'
 )
+
+
+# ### LINUX P620 and Neurodoor ###
+
+# # --- ssh, db cred, variable assignment for Ubuntu on P620 Workstation --- #
+
+# # ### setting data file locations ###
+# # file_loc = '/home/sid/data'
+# # processed_file_loc = '/home/sid/processed_data'
+# # face_landmark_filename = '/home/sid/Desktop/repos/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
+# # auth_config_file_loc = '/home/sid/.db_secrets/users.txt'
+# # db_config_file_loc = '/home/sid/.db_secrets/db_secrets.txt'
+# # ###
+
+# ### setting data file locations for Neurodoor ###
+# file_loc = '/autofs/nas/neurobooth/data'
+# processed_file_loc = '/autofs/nas/neurobooth/processed_data'
+# face_landmark_filename = '/homes/5/sp1022/repos/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
+# auth_config_file_loc = '/homes/5/sp1022/.db_secrets/users.txt'
+# db_config_file_loc = '/homes/5/sp1022/.db_secrets/db_secrets.txt'
+# ###
+
+# auth_config = configparser.ConfigParser()
+# auth_config.read(auth_config_file_loc)
+
+# USERNAME_PASSWORD_PAIRS = dict()
+# for ky in auth_config[auth_config.sections()[0]]:
+#     USERNAME_PASSWORD_PAIRS[ky] = auth_config[auth_config.sections()[0]][ky]
+
+# config = configparser.ConfigParser()
+# config.read(db_config_file_loc)
+
+# # Setting db access args #
+# ssh_args = dict(
+#         ssh_address_or_host=config['linux']['ssh_address_or_host'],
+#         ssh_username=config['linux']['ssh_username'],
+#         ssh_pkey=config['linux']['ssh_pkey'],
+#         remote_bind_address=(config['linux']['remote_bind_address'], int(config['linux']['remote_bind_address_port'])),
+#         local_bind_address=(config['linux']['local_bind_address'], int(config['linux']['local_bind_address_port'])),
+#         allow_agent=False
+# )
+
+# db_args = dict(
+#     database=config['linux']['database'], user=config['linux']['user'], password=config['linux']['password'],
+#     # host='localhost'
+# )
 
 
 # ### Control Machine ###
@@ -205,6 +208,7 @@ nb_data_df, sub_id_list, session_date_list, task_list, clinical_list = rebuild_m
 #             if file[-5:] == '.hdf5':
 #                 file_list.append(file)
 #     return file_list
+
 
 # --- Function to generate empty file length dataframe --- #
 def generate_empty_file_len_df():
@@ -340,6 +344,7 @@ def get_DSC_button_presses(dsc_filename, fig):
         )
     
     return fig
+
 
 # --- Function to parse task session files and return traces --- #
 def parse_files(task_files):
@@ -850,18 +855,43 @@ def read_rc_notes(task_session_value_split):
     return text_markdown
 
 
-# --- Creating all_files list --- #
-#all_file_list = get_file_list(nb_data_df)
+# --- Function to read face landmark files --- #
+def parse_face_landmarks(task_files, face_landmark_filename=face_landmark_filename):
 
-# --- Reading face landmark file --- #
-face_landmark_data = read_hdf5(face_landmark_filename)['device_data']
-face_landmark_timestamps = face_landmark_data['time_stamps']
-face_landmark_points = face_landmark_data['time_series']
-face_landmark_x = face_landmark_points[::100,:,0]
-face_landmark_y = face_landmark_points[::100,:,1]
+    if len(task_files)==0 or len(task_files)==1:
+        face_landmark_data = read_hdf5(face_landmark_filename)['device_data']
+    else:
+        for file in task_files:
+            if 'FLIR' in file:
+                try:
+                    file = file.replace('.hdf5', '_face_landmarks.hdf5')
+                    fname = glob.glob(op.join(processed_file_loc, file))[0]
+                    face_landmark_data = read_hdf5(fname)['device_data']
+                except:
+                    face_landmark_data = read_hdf5(face_landmark_filename)['device_data']
+
+    if not face_landmark_data:
+        face_landmark_data = read_hdf5(face_landmark_filename)['device_data']
+    
+    #face_landmark_timestamps = face_landmark_data['time_stamps']
+    face_landmark_points = face_landmark_data['time_series']
+    if len(face_landmark_points>1000):
+        face_landmark_x = face_landmark_points[::100,:,0]
+        face_landmark_y = face_landmark_points[::100,:,1]
+    else:
+        face_landmark_x = face_landmark_points[:,:,0]
+        face_landmark_y = face_landmark_points[:,:,1]
+
+    return face_landmark_x, face_landmark_y
+
+# --- initializing place holder face landmarks --- #
+face_landmark_x, face_landmark_y = parse_face_landmarks([])
 
 # --- Generating empty len_df --- #
 len_df = generate_empty_file_len_df()
+
+# --- Creating all_files list --- #
+#all_file_list = get_file_list(nb_data_df)
 
 app = dash.Dash(__name__)
 auth = dash_auth.BasicAuth(app, USERNAME_PASSWORD_PAIRS)
@@ -1124,6 +1154,11 @@ def update_table(task_session_value):
     rc_notes_markdown = init_str
     if task_session_value:
         rc_notes_markdown = read_rc_notes(task_session_value.split('_obs')[0])
+    
+    # resetting global variables
+    global face_landmark_x
+    global face_landmark_y
+    face_landmark_x, face_landmark_y = parse_face_landmarks(task_files)
 
     timeseries_data, specgram_data, len_df = parse_files(task_files)
     length_data = len_df.to_dict('records')
@@ -1260,6 +1295,6 @@ def on_button_click(n_clicks_timestamp):
 
 if __name__ == '__main__':
     # context = ('/home/sid/.db_secrets/nb_cert.pem', '/home/sid/.db_secrets/nb_key.pem')
-    context = ('/usr/etc/certs/server.crt', '/usr/etc/certs/server.key')
-    app.run_server(host='0.0.0.0', port='8050', debug=True, ssl_context=context)
-    # app.run_server(host='127.0.0.1', port='8050', debug=True)
+    # context = ('/usr/etc/certs/server.crt', '/usr/etc/certs/server.key')
+    # app.run_server(host='0.0.0.0', port='8050', debug=True, ssl_context=context)
+    app.run_server(host='127.0.0.1', port='8050', debug=True)
