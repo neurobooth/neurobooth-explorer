@@ -392,8 +392,19 @@ def parse_files(task_files):
                     fs = int(1/np.median(np.diff(et_df.timestamps)))
                     #print('Eyelink Sampling Rate =', fs)
 
+                    # Adding eyelink timestamp #################################
+                    et_df['el_timestamps'] = fdata['time_series'][:,-1]
+                    # Computing correction between eyelink time and control time
+                    et_sampling_corr = et_df['el_timestamps'].apply(lambda x: x-et_df.el_timestamps[0]) - et_df['timestamps'].apply(lambda x: x-et_df.timestamps[0])
+                    ############################################################
+
                     dt_corr = int(float(mdata['time_series'][0][0].split('_')[-1]) - mdata['time_stamps'][0]) # datetime-correction factor : time correction offset for correcting LSL time to local time
                     et_datetime = et_df.timestamps.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
+
+                    # correcting control timestamps with eyelink timestamp correction factor and coverting to present day datetime
+                    corr_timestamps = et_df['timestamps'] + et_sampling_corr
+                    el_datetime = np.array([datetime.fromtimestamp(dt_corr+i) for i in corr_timestamps])
+                    ##############################################################################################################
 
                     trace1 = go.Scatter(
                                 x=et_datetime,
@@ -432,7 +443,45 @@ def parse_files(task_files):
                             )
                     timeseries_data.append(trace4)
                     #print(trace4)
-                    
+
+                    ### Adding traces w.r.t eyelink times ###
+                    el_trace1 = go.Scatter(
+                                x=el_datetime,
+                                y=et_df['R_gaze_x'],
+                                name='Right Eye Gaze X on Eyelink Time',
+                                mode='lines',
+                                visible='legendonly',
+                            )
+                    timeseries_data.append(el_trace1)
+
+                    el_trace2 = go.Scatter(
+                                x=el_datetime,
+                                y=et_df['R_gaze_y'],
+                                name='Right Eye Gaze Y on Eyelink Time',
+                                mode='lines',
+                                visible='legendonly',
+                            )
+                    timeseries_data.append(el_trace2)
+
+                    el_trace3 = go.Scatter(
+                                x=el_datetime,
+                                y=et_df['L_gaze_x'],
+                                name='Left Eye Gaze X on Eyelink Time',
+                                mode='lines',
+                                visible='legendonly',
+                            )
+                    timeseries_data.append(el_trace3)
+
+                    el_trace4 = go.Scatter(
+                                x=el_datetime,
+                                y=et_df['L_gaze_y'],
+                                name='Left Eye Gaze Y on Eyelink Time',
+                                mode='lines',
+                                visible='legendonly',
+                            )
+                    timeseries_data.append(el_trace4)
+                    #########################################
+
                     if 'MOT' not in file:
                         # Adding target trace - target trace is always extracted from eyelink marker data
                         ts_ix = []
@@ -446,13 +495,18 @@ def parse_files(task_files):
                                 y_coord.append(int(l[4]))
 
                         ctrl_ts = mdata['time_stamps'][ts_ix]
-                            
+
                         target_pos_df = pd.DataFrame()
                         target_pos_df['ctrl_ts'] = ctrl_ts
                         target_pos_df['x_pos'] = x_coord
                         target_pos_df['y_pos'] = y_coord
                         #print(target_pos_df.head(n=2))
                         target_datetime = target_pos_df.ctrl_ts.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
+
+                        # eyelink target datetime
+                        trg_corr = np.mean(et_sampling_corr)
+                        el_target_datetime = target_pos_df.ctrl_ts.apply(lambda x: datetime.fromtimestamp(dt_corr+x+trg_corr))
+                        #########################
 
                         target_x_trace = go.Scatter(
                                     x=target_datetime,
@@ -473,8 +527,29 @@ def parse_files(task_files):
                                     visible='legendonly',
                                 )
                         timeseries_data.append(target_y_trace)
-                        # except:
-                        #     pass
+
+                        ### Adding target traces on eyelink times ###
+                        el_target_x_trace = go.Scatter(
+                                    x=el_target_datetime,
+                                    y=(target_pos_df['x_pos']),
+                                    name='Target X on Eyelink Time',
+                                    line={'shape': 'hv'},
+                                    mode='lines',
+                                    visible='legendonly',
+                                )
+                        timeseries_data.append(el_target_x_trace)
+
+                        el_target_y_trace = go.Scatter(
+                                    x=el_target_datetime,
+                                    y=(target_pos_df['y_pos']),
+                                    name='Target Y on Eyelink Time',
+                                    line={'shape': 'hv'},
+                                    mode='lines',
+                                    visible='legendonly',
+                                )
+                        timeseries_data.append(el_target_y_trace)
+                        #############################################
+
                     elif 'MOT' in  file:
                         target_dict = dict()
                         for i in range(10):
