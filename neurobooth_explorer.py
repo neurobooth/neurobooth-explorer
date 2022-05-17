@@ -403,7 +403,9 @@ def parse_files(task_files):
 
                     # correcting control timestamps with eyelink timestamp correction factor and coverting to present day datetime
                     corr_timestamps = et_df['timestamps'] + et_sampling_corr
-                    el_datetime = np.array([datetime.fromtimestamp(dt_corr+i) for i in corr_timestamps])
+                    trg_corr = np.mean(et_sampling_corr)
+                    el_datetime = np.array([datetime.fromtimestamp(dt_corr+i-trg_corr) for i in corr_timestamps])
+                    # target correction is subtracted because undersampling eyetracker leads to expanded time
                     ##############################################################################################################
 
                     trace1 = go.Scatter(
@@ -448,7 +450,7 @@ def parse_files(task_files):
                     el_trace1 = go.Scatter(
                                 x=el_datetime,
                                 y=et_df['R_gaze_x'],
-                                name='Right Eye Gaze X on Eyelink Time',
+                                name='R_gaze_x on Eyelink Time : Marker offset = '+str(np.abs(trg_corr*1000))[:3]+' ms',
                                 mode='lines',
                                 visible='legendonly',
                             )
@@ -503,10 +505,10 @@ def parse_files(task_files):
                         #print(target_pos_df.head(n=2))
                         target_datetime = target_pos_df.ctrl_ts.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
 
-                        # eyelink target datetime
-                        trg_corr = np.mean(et_sampling_corr)
-                        el_target_datetime = target_pos_df.ctrl_ts.apply(lambda x: datetime.fromtimestamp(dt_corr+x+trg_corr))
-                        #########################
+                        # # eyelink target datetime
+                        # trg_corr = np.mean(et_sampling_corr)
+                        # el_target_datetime = target_pos_df.ctrl_ts.apply(lambda x: datetime.fromtimestamp(dt_corr+x+trg_corr))
+                        # #########################
 
                         target_x_trace = go.Scatter(
                                     x=target_datetime,
@@ -528,27 +530,27 @@ def parse_files(task_files):
                                 )
                         timeseries_data.append(target_y_trace)
 
-                        ### Adding target traces on eyelink times ###
-                        el_target_x_trace = go.Scatter(
-                                    x=el_target_datetime,
-                                    y=(target_pos_df['x_pos']),
-                                    name='Target X on Eyelink Time',
-                                    line={'shape': 'hv'},
-                                    mode='lines',
-                                    visible='legendonly',
-                                )
-                        timeseries_data.append(el_target_x_trace)
+                        # ### Adding target traces on eyelink times ###
+                        # el_target_x_trace = go.Scatter(
+                        #             x=el_target_datetime,
+                        #             y=(target_pos_df['x_pos']),
+                        #             name='Target X on Eyelink Time',
+                        #             line={'shape': 'hv'},
+                        #             mode='lines',
+                        #             visible='legendonly',
+                        #         )
+                        # timeseries_data.append(el_target_x_trace)
 
-                        el_target_y_trace = go.Scatter(
-                                    x=el_target_datetime,
-                                    y=(target_pos_df['y_pos']),
-                                    name='Target Y on Eyelink Time',
-                                    line={'shape': 'hv'},
-                                    mode='lines',
-                                    visible='legendonly',
-                                )
-                        timeseries_data.append(el_target_y_trace)
-                        #############################################
+                        # el_target_y_trace = go.Scatter(
+                        #             x=el_target_datetime,
+                        #             y=(target_pos_df['y_pos']),
+                        #             name='Target Y on Eyelink Time',
+                        #             line={'shape': 'hv'},
+                        #             mode='lines',
+                        #             visible='legendonly',
+                        #         )
+                        # timeseries_data.append(el_target_y_trace)
+                        # #############################################
 
                     elif 'MOT' in  file:
                         target_dict = dict()
