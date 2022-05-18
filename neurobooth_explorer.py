@@ -1224,6 +1224,10 @@ def update_table(task_session_value):
                     'pad':{'t':10}
                 },
                 titlefont={'size':18},
+                ## default template is "plotly" - comment out template to revert to default
+                template="plotly_dark", ## 10 colors
+                # template="ggplot2", ## 5 colors
+                # template="seaborn", ## 10 colors
             )
     
     timeseries_fig=go.Figure(data=timeseries_data, layout=timeseries_layout)
