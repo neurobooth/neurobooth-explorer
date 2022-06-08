@@ -722,17 +722,22 @@ def parse_files(task_files):
                     dt_corr = int(float(mdata['time_series'][0][0].split('_')[-1]) - mdata['time_stamps'][0]) # datetime-correction factor : time correction offset for correcting LSL time to local time
 
                     audio_tstmp = fdata['time_stamps']
-
                     audio_ts = fdata['time_series']
+
                     chunk_len = audio_ts.shape[1]
+                    # accounting for later addition of time in timeseries data - audio chunks are of length 1025 instead of 1024 
+                    if chunk_len %2:
+                        chunk_len -= 1
+                        audio_ts_full = np.hstack(audio_ts[:,1:])
+                    else:
+                        audio_ts_full = np.hstack(audio_ts)
+
                     # chunk timestamps from end of chunck, add beginning
                     audio_tstmp = np.insert(audio_tstmp, 0, audio_tstmp[0] - np.diff(audio_tstmp).mean())
                     tstmps = []
                     for i in range(audio_ts.shape[0]):
                         tstmps.append(np.linspace(audio_tstmp[i], audio_tstmp[i+1], chunk_len))
                     audio_tstmp_full = np.hstack(tstmps)
-
-                    audio_ts_full = np.hstack(audio_ts)
 
                     audio_df = pd.DataFrame(audio_ts_full, columns=['amplitude'])
                     audio_df['timestamps'] = audio_tstmp_full
