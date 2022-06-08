@@ -931,7 +931,7 @@ def read_rc_notes(task_session_value_split):
     except:
         text_markdown += 'Could not read RC notes file\n \t'
 
-    return text_markdown
+    return text_markdown.replace('[','\[').replace(']','\]')
 
 
 # --- Creating all_files list --- #
@@ -1021,7 +1021,7 @@ app.layout = html.Div([
                         html.H4('Meta Data', style={'textAlign':'center'}),
                         html.Div([
                                 html.Div(dcc.Markdown(id="rc_notes_markdown", children=init_str), 
-                                        style={'whiteSpace': 'pre-line',
+                                        style={'whiteSpace': 'pre-wrap',
                                                 'outline':'1px black solid',
                                                 'outline-offset': '-2px',
                                                 'width':'46%',
@@ -1252,21 +1252,31 @@ def update_table(task_session_value):
             timeseries_fig = get_DSC_button_presses(filename, timeseries_fig)
         if ('MOT' in filename) and ('Eye' in filename):
             timeseries_fig = get_movement_task_start_end_times(filename, timeseries_fig)
-    
-    for movement_task in ['finger_nose', 'foot_tapping', 'sit_to_stand', 'altern_hand_mov', 'passage']:
+
+    for movement_task in ['finger_nose', 'foot_tapping', 'sit_to_stand', 'altern_hand_mov']:
         for filename in task_files:
             if (movement_task in filename) & ('Mbient_RH' in filename):
                 timeseries_fig = get_movement_task_start_end_times(filename, timeseries_fig)
 
+    for ocular_task in ['pursuit', 'fixation_no_target', 'gaze_holding', 'saccades_horizontal', 'saccades_vertical', 'DSC', 'hevelius', 'passage']:
+        for filename in task_files:
+            if (ocular_task in filename) & ('Eye' in filename):
+                timeseries_fig = get_movement_task_start_end_times(filename, timeseries_fig)
+
+    for vocal_task in ['ahh', 'gogogo', 'lalala', 'mememe', 'pataka', 'passage']:
+        for filename in task_files:
+            if (vocal_task in filename) & ('Mic' in filename):
+                timeseries_fig = get_movement_task_start_end_times(filename, timeseries_fig)
+
     timeseries_fig.update_xaxes(tickangle=45, tickfont={'size':14}, showline=True, linewidth=1, linecolor='black', mirror=True, title_font={'size':18})
     timeseries_fig.update_yaxes(tickfont={'size':12})
-    
+
     specgram_layout = go.Layout(
         title = 'Audio Trace',
         yaxis = dict(title = 'Amplitude'), # y-axis label
         xaxis = dict(title = 'Time (seconds)'), # x-axis label
         )
-    
+
     specgram_fig = go.Figure(data=specgram_data, layout=specgram_layout)
     specgram_fig.update_layout(legend_x=1, legend_y=1)
 
