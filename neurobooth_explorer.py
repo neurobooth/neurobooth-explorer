@@ -285,7 +285,7 @@ def get_DSC_button_presses(dsc_filename, fig):
             button_release_local_ts.append(float(txt[0].split('_')[-1]))
 
     if new_symbol_local_ts and button_press_local_ts and button_release_local_ts:
-        for i in new_symbol_local_ts:    
+        for i in new_symbol_local_ts:
             x=datetime.fromtimestamp(i)
             fig.add_shape(type="line",
                 x0=x, y0=0, x1=x, y1=1400,
@@ -296,7 +296,7 @@ def get_DSC_button_presses(dsc_filename, fig):
                 )
             )
 
-        for i in button_press_local_ts:    
+        for i in button_press_local_ts:
             x=datetime.fromtimestamp(i)
             fig.add_shape(type="line",
                 x0=x, y0=0, x1=x, y1=1400,
@@ -307,7 +307,7 @@ def get_DSC_button_presses(dsc_filename, fig):
                 )
             )
 
-        for i in button_release_local_ts:    
+        for i in button_release_local_ts:
             x=datetime.fromtimestamp(i)
             fig.add_shape(type="line",
                 x0=x, y0=0, x1=x, y1=1400,
@@ -319,7 +319,14 @@ def get_DSC_button_presses(dsc_filename, fig):
             )
         fig.update_shapes(dict(xref='x', yref='y'))
 
-        for start,end in zip(new_symbol_local_ts, button_release_local_ts):    
+        button_releases = []
+        for new_symbol in new_symbol_local_ts:
+            for button_release in button_release_local_ts:
+                if button_release>new_symbol:
+                    button_releases.append(button_release)
+                    break
+
+        for start,end in zip(new_symbol_local_ts, button_releases):
             xstart=datetime.fromtimestamp(start)
             xend=datetime.fromtimestamp(end)
             fig.add_shape(type="rect",
