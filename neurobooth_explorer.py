@@ -206,6 +206,7 @@ nb_data_df, sub_id_list, session_date_list, task_list, clinical_list = rebuild_m
 #                 file_list.append(file)
 #     return file_list
 
+
 # --- Function to generate empty file length dataframe --- #
 def generate_empty_file_len_df():
     len_df = pd.DataFrame()
@@ -340,6 +341,7 @@ def get_DSC_button_presses(dsc_filename, fig):
         )
     
     return fig
+
 
 # --- Function to parse task session files and return traces --- #
 def parse_files(task_files):
@@ -944,6 +946,7 @@ face_landmark_y = face_landmark_points[::100,:,1]
 
 # --- Generating empty len_df --- #
 len_df = generate_empty_file_len_df()
+
 
 app = dash.Dash(__name__)
 auth = dash_auth.BasicAuth(app, USERNAME_PASSWORD_PAIRS)
