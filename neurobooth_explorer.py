@@ -206,6 +206,7 @@ nb_data_df, sub_id_list, session_date_list, task_list, clinical_list = rebuild_m
 #                 file_list.append(file)
 #     return file_list
 
+
 # --- Function to generate empty file length dataframe --- #
 def generate_empty_file_len_df():
     len_df = pd.DataFrame()
@@ -284,7 +285,7 @@ def get_DSC_button_presses(dsc_filename, fig):
             button_release_local_ts.append(float(txt[0].split('_')[-1]))
 
     if new_symbol_local_ts and button_press_local_ts and button_release_local_ts:
-        for i in new_symbol_local_ts:    
+        for i in new_symbol_local_ts:
             x=datetime.fromtimestamp(i)
             fig.add_shape(type="line",
                 x0=x, y0=0, x1=x, y1=1400,
@@ -295,7 +296,7 @@ def get_DSC_button_presses(dsc_filename, fig):
                 )
             )
 
-        for i in button_press_local_ts:    
+        for i in button_press_local_ts:
             x=datetime.fromtimestamp(i)
             fig.add_shape(type="line",
                 x0=x, y0=0, x1=x, y1=1400,
@@ -306,7 +307,7 @@ def get_DSC_button_presses(dsc_filename, fig):
                 )
             )
 
-        for i in button_release_local_ts:    
+        for i in button_release_local_ts:
             x=datetime.fromtimestamp(i)
             fig.add_shape(type="line",
                 x0=x, y0=0, x1=x, y1=1400,
@@ -318,7 +319,14 @@ def get_DSC_button_presses(dsc_filename, fig):
             )
         fig.update_shapes(dict(xref='x', yref='y'))
 
-        for start,end in zip(new_symbol_local_ts, button_release_local_ts):    
+        button_releases = []
+        for new_symbol in new_symbol_local_ts:
+            for button_release in button_release_local_ts:
+                if button_release>new_symbol:
+                    button_releases.append(button_release)
+                    break
+
+        for start,end in zip(new_symbol_local_ts, button_releases):
             xstart=datetime.fromtimestamp(start)
             xend=datetime.fromtimestamp(end)
             fig.add_shape(type="rect",
@@ -340,6 +348,7 @@ def get_DSC_button_presses(dsc_filename, fig):
         )
     
     return fig
+
 
 # --- Function to parse task session files and return traces --- #
 def parse_files(task_files):
@@ -392,8 +401,21 @@ def parse_files(task_files):
                     fs = int(1/np.median(np.diff(et_df.timestamps)))
                     #print('Eyelink Sampling Rate =', fs)
 
+                    # Adding eyelink timestamp #################################
+                    et_df['el_timestamps'] = fdata['time_series'][:,-1]
+                    # Computing correction between eyelink time and control time
+                    et_sampling_corr = et_df['el_timestamps'].apply(lambda x: x-et_df.el_timestamps[0]) - et_df['timestamps'].apply(lambda x: x-et_df.timestamps[0])
+                    ############################################################
+
                     dt_corr = int(float(mdata['time_series'][0][0].split('_')[-1]) - mdata['time_stamps'][0]) # datetime-correction factor : time correction offset for correcting LSL time to local time
                     et_datetime = et_df.timestamps.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
+
+                    # correcting control timestamps with eyelink timestamp correction factor and coverting to present day datetime
+                    corr_timestamps = et_df['timestamps'] + et_sampling_corr
+                    trg_corr = np.mean(et_sampling_corr)
+                    el_datetime = np.array([datetime.fromtimestamp(dt_corr+i-trg_corr) for i in corr_timestamps])
+                    # target correction is subtracted because undersampling eyetracker leads to expanded time
+                    ##############################################################################################################
 
                     trace1 = go.Scatter(
                                 x=et_datetime,
@@ -432,7 +454,45 @@ def parse_files(task_files):
                             )
                     timeseries_data.append(trace4)
                     #print(trace4)
-                    
+
+                    ### Adding traces w.r.t eyelink times ###
+                    el_trace1 = go.Scatter(
+                                x=el_datetime,
+                                y=et_df['R_gaze_x'],
+                                name='R_gaze_x on Eyelink Time : Marker offset = '+str(np.abs(trg_corr*1000))[:3]+' ms',
+                                mode='lines',
+                                visible='legendonly',
+                            )
+                    timeseries_data.append(el_trace1)
+
+                    el_trace2 = go.Scatter(
+                                x=el_datetime,
+                                y=et_df['R_gaze_y'],
+                                name='Right Eye Gaze Y on Eyelink Time',
+                                mode='lines',
+                                visible='legendonly',
+                            )
+                    timeseries_data.append(el_trace2)
+
+                    el_trace3 = go.Scatter(
+                                x=el_datetime,
+                                y=et_df['L_gaze_x'],
+                                name='Left Eye Gaze X on Eyelink Time',
+                                mode='lines',
+                                visible='legendonly',
+                            )
+                    timeseries_data.append(el_trace3)
+
+                    el_trace4 = go.Scatter(
+                                x=el_datetime,
+                                y=et_df['L_gaze_y'],
+                                name='Left Eye Gaze Y on Eyelink Time',
+                                mode='lines',
+                                visible='legendonly',
+                            )
+                    timeseries_data.append(el_trace4)
+                    #########################################
+
                     if 'MOT' not in file:
                         # Adding target trace - target trace is always extracted from eyelink marker data
                         ts_ix = []
@@ -446,13 +506,18 @@ def parse_files(task_files):
                                 y_coord.append(int(l[4]))
 
                         ctrl_ts = mdata['time_stamps'][ts_ix]
-                            
+
                         target_pos_df = pd.DataFrame()
                         target_pos_df['ctrl_ts'] = ctrl_ts
                         target_pos_df['x_pos'] = x_coord
                         target_pos_df['y_pos'] = y_coord
                         #print(target_pos_df.head(n=2))
                         target_datetime = target_pos_df.ctrl_ts.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
+
+                        # # eyelink target datetime
+                        # trg_corr = np.mean(et_sampling_corr)
+                        # el_target_datetime = target_pos_df.ctrl_ts.apply(lambda x: datetime.fromtimestamp(dt_corr+x+trg_corr))
+                        # #########################
 
                         target_x_trace = go.Scatter(
                                     x=target_datetime,
@@ -473,8 +538,29 @@ def parse_files(task_files):
                                     visible='legendonly',
                                 )
                         timeseries_data.append(target_y_trace)
-                        # except:
-                        #     pass
+
+                        # ### Adding target traces on eyelink times ###
+                        # el_target_x_trace = go.Scatter(
+                        #             x=el_target_datetime,
+                        #             y=(target_pos_df['x_pos']),
+                        #             name='Target X on Eyelink Time',
+                        #             line={'shape': 'hv'},
+                        #             mode='lines',
+                        #             visible='legendonly',
+                        #         )
+                        # timeseries_data.append(el_target_x_trace)
+
+                        # el_target_y_trace = go.Scatter(
+                        #             x=el_target_datetime,
+                        #             y=(target_pos_df['y_pos']),
+                        #             name='Target Y on Eyelink Time',
+                        #             line={'shape': 'hv'},
+                        #             mode='lines',
+                        #             visible='legendonly',
+                        #         )
+                        # timeseries_data.append(el_target_y_trace)
+                        # #############################################
+
                     elif 'MOT' in  file:
                         target_dict = dict()
                         for i in range(10):
@@ -645,17 +731,22 @@ def parse_files(task_files):
                     dt_corr = int(float(mdata['time_series'][0][0].split('_')[-1]) - mdata['time_stamps'][0]) # datetime-correction factor : time correction offset for correcting LSL time to local time
 
                     audio_tstmp = fdata['time_stamps']
-
                     audio_ts = fdata['time_series']
+
                     chunk_len = audio_ts.shape[1]
+                    # accounting for later addition of time in timeseries data - audio chunks are of length 1025 instead of 1024 
+                    if chunk_len %2:
+                        chunk_len -= 1
+                        audio_ts_full = np.hstack(audio_ts[:,1:])
+                    else:
+                        audio_ts_full = np.hstack(audio_ts)
+
                     # chunk timestamps from end of chunck, add beginning
                     audio_tstmp = np.insert(audio_tstmp, 0, audio_tstmp[0] - np.diff(audio_tstmp).mean())
                     tstmps = []
                     for i in range(audio_ts.shape[0]):
                         tstmps.append(np.linspace(audio_tstmp[i], audio_tstmp[i+1], chunk_len))
                     audio_tstmp_full = np.hstack(tstmps)
-
-                    audio_ts_full = np.hstack(audio_ts)
 
                     audio_df = pd.DataFrame(audio_ts_full, columns=['amplitude'])
                     audio_df['timestamps'] = audio_tstmp_full
@@ -847,7 +938,7 @@ def read_rc_notes(task_session_value_split):
     except:
         text_markdown += 'Could not read RC notes file\n \t'
 
-    return text_markdown
+    return text_markdown.replace('[','\[').replace(']','\]')
 
 
 # --- Creating all_files list --- #
@@ -862,6 +953,7 @@ face_landmark_y = face_landmark_points[::100,:,1]
 
 # --- Generating empty len_df --- #
 len_df = generate_empty_file_len_df()
+
 
 app = dash.Dash(__name__)
 auth = dash_auth.BasicAuth(app, USERNAME_PASSWORD_PAIRS)
@@ -936,7 +1028,7 @@ app.layout = html.Div([
                         html.H4('Meta Data', style={'textAlign':'center'}),
                         html.Div([
                                 html.Div(dcc.Markdown(id="rc_notes_markdown", children=init_str), 
-                                        style={'whiteSpace': 'pre-line',
+                                        style={'whiteSpace': 'pre-wrap',
                                                 'outline':'1px black solid',
                                                 'outline-offset': '-2px',
                                                 'width':'46%',
@@ -1147,6 +1239,10 @@ def update_table(task_session_value):
                     'pad':{'t':10}
                 },
                 titlefont={'size':18},
+                ## default template is "plotly" - comment out template to revert to default
+                template="plotly_dark", ## 10 colors
+                # template="ggplot2", ## 5 colors
+                # template="seaborn", ## 10 colors
             )
     
     timeseries_fig=go.Figure(data=timeseries_data, layout=timeseries_layout)
@@ -1163,21 +1259,31 @@ def update_table(task_session_value):
             timeseries_fig = get_DSC_button_presses(filename, timeseries_fig)
         if ('MOT' in filename) and ('Eye' in filename):
             timeseries_fig = get_movement_task_start_end_times(filename, timeseries_fig)
-    
-    for movement_task in ['finger_nose', 'foot_tapping', 'sit_to_stand', 'altern_hand_mov', 'passage']:
+
+    for movement_task in ['finger_nose', 'foot_tapping', 'sit_to_stand', 'altern_hand_mov']:
         for filename in task_files:
             if (movement_task in filename) & ('Mbient_RH' in filename):
                 timeseries_fig = get_movement_task_start_end_times(filename, timeseries_fig)
 
+    for ocular_task in ['pursuit', 'fixation_no_target', 'gaze_holding', 'saccades_horizontal', 'saccades_vertical', 'DSC', 'hevelius', 'passage']:
+        for filename in task_files:
+            if (ocular_task in filename) & ('Eye' in filename):
+                timeseries_fig = get_movement_task_start_end_times(filename, timeseries_fig)
+
+    for vocal_task in ['ahh', 'gogogo', 'lalala', 'mememe', 'pataka', 'passage']:
+        for filename in task_files:
+            if (vocal_task in filename) & ('Mic' in filename):
+                timeseries_fig = get_movement_task_start_end_times(filename, timeseries_fig)
+
     timeseries_fig.update_xaxes(tickangle=45, tickfont={'size':14}, showline=True, linewidth=1, linecolor='black', mirror=True, title_font={'size':18})
     timeseries_fig.update_yaxes(tickfont={'size':12})
-    
+
     specgram_layout = go.Layout(
         title = 'Audio Trace',
         yaxis = dict(title = 'Amplitude'), # y-axis label
         xaxis = dict(title = 'Time (seconds)'), # x-axis label
         )
-    
+
     specgram_fig = go.Figure(data=specgram_data, layout=specgram_layout)
     specgram_fig.update_layout(legend_x=1, legend_y=1)
 
