@@ -69,20 +69,58 @@ from scipy import signal
 # )
 
 
-### LINUX P620 and Neurodoor ###
+# ### LINUX P620 and Neurodoor ###
+
+# # --- ssh, db cred, variable assignment for Ubuntu on P620 Workstation --- #
+
+# # ### setting data file locations ###
+# # file_loc = '/home/sid/data'
+# # face_landmark_filename = '/home/sid/Desktop/repos/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
+# # auth_config_file_loc = '/home/sid/.db_secrets/users.txt'
+# # db_config_file_loc = '/home/sid/.db_secrets/db_secrets.txt'
+# # ###
+
+# ### setting data file locations for Neurodoor ###
+# file_loc = '/autofs/nas/neurobooth/data'
+# face_landmark_filename = '/homes/5/sp1022/repos/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
+# auth_config_file_loc = '/homes/5/sp1022/.db_secrets/users.txt'
+# db_config_file_loc = '/homes/5/sp1022/.db_secrets/db_secrets.txt'
+# ###
+
+# auth_config = configparser.ConfigParser()
+# auth_config.read(auth_config_file_loc)
+
+# USERNAME_PASSWORD_PAIRS = dict()
+# for ky in auth_config[auth_config.sections()[0]]:
+#     USERNAME_PASSWORD_PAIRS[ky] = auth_config[auth_config.sections()[0]][ky]
+
+# config = configparser.ConfigParser()
+# config.read(db_config_file_loc)
+
+# # Setting db access args #
+# ssh_args = dict(
+#         ssh_address_or_host=config['linux']['ssh_address_or_host'],
+#         ssh_username=config['linux']['ssh_username'],
+#         ssh_pkey=config['linux']['ssh_pkey'],
+#         remote_bind_address=(config['linux']['remote_bind_address'], int(config['linux']['remote_bind_address_port'])),
+#         local_bind_address=(config['linux']['local_bind_address'], int(config['linux']['local_bind_address_port'])),
+#         allow_agent=False
+# )
+
+# db_args = dict(
+#     database=config['linux']['database'], user=config['linux']['user'], password=config['linux']['password'],
+#     # host='localhost'
+# )
+
+
+### DrWho ###
 
 # --- ssh, db cred, variable assignment for Ubuntu on P620 Workstation --- #
 
-# ### setting data file locations ###
-# file_loc = '/home/sid/data'
-# face_landmark_filename = '/home/sid/Desktop/repos/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
-# auth_config_file_loc = '/home/sid/.db_secrets/users.txt'
-# db_config_file_loc = '/home/sid/.db_secrets/db_secrets.txt'
-# ###
-
-### setting data file locations for Neurodoor ###
-file_loc = '/autofs/nas/neurobooth/data'
-face_landmark_filename = '/homes/5/sp1022/repos/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
+### setting data file locations for DrWho ###
+file_loc_odd = '/space/neo/3/neurobooth/data'
+file_loc_even = '/local_mount/space/drwho/3/neurobooth/data'
+face_landmark_filename = '/local_mount/space/drwho/3/neurobooth/applications/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
 auth_config_file_loc = '/homes/5/sp1022/.db_secrets/users.txt'
 db_config_file_loc = '/homes/5/sp1022/.db_secrets/db_secrets.txt'
 ###
@@ -272,6 +310,16 @@ def generate_empty_file_len_df():
     return len_df
 
 
+# --- Function to get file location based on odd/even subject_id --- #
+def get_file_loc(filename):
+    odd_even_session, _ = op.split(filename)
+    odd_even_subject_id = int(odd_even_session.split('_')[0])
+    if odd_even_subject_id % 2: #odd
+        file_loc = file_loc_odd
+    else: #even
+        file_loc = file_loc_even
+    return file_loc
+
 # --- Function to extract task session file list from datafarme --- #
 def get_task_session_files(fdf):
     sl = fdf.subject_id.tolist() #subject list
@@ -291,6 +339,7 @@ def get_task_session_files(fdf):
 # --- Function for getting start and end task times for movement tasks --- #
 def get_movement_task_start_end_times(mv_filename, fig):
     try:
+        file_loc = get_file_loc(mv_filename)
         fname = glob.glob(op.join(file_loc, mv_filename))[0]
     except:
         print('file not found at location:', file_loc, 'filename :', mv_filename)
@@ -324,6 +373,7 @@ def get_movement_task_start_end_times(mv_filename, fig):
 # --- Function to get button presses for DSC task --- #
 def get_DSC_button_presses(dsc_filename, fig):
     try:
+        file_loc = get_file_loc(dsc_filename)
         fname = glob.glob(op.join(file_loc, dsc_filename))[0]
     except:
         print('file not found at location:', file_loc, 'filename :', dsc_filename)
@@ -444,6 +494,7 @@ def parse_files(task_files):
     else:
 
         for file in task_files:
+            file_loc = get_file_loc(file)
             if 'Eyelink' in file:
                 try:
                     fname = glob.glob(op.join(file_loc, file))[0]
@@ -984,6 +1035,7 @@ def read_rc_notes(task_session_value_split):
         return text_markdown
     
     try:
+        file_loc = get_file_loc(rc_notes_fname)
         fname = glob.glob(op.join(file_loc, rc_notes_fname))[0]
         text_markdown = init_str
         with open(fname) as rc_notes_file:
@@ -1455,3 +1507,4 @@ if __name__ == '__main__':
     context = ('/usr/etc/certs/server.crt', '/usr/etc/certs/server.key')
     app.run_server(host='0.0.0.0', port='8050', debug=True, ssl_context=context)
     # app.run_server(host='127.0.0.1', port='8050', debug=True)
+    # app.run_server(host='0.0.0.0', port='8050', debug=True)
