@@ -144,10 +144,12 @@ def calculate_age(dob):
 
 sql_query_cmd = """
 SELECT subject.subject_id, subject.gender_at_birth, subject.date_of_birth_subject, log_task.date_times, log_task.log_task_id,
-       log_task.task_id, log_sensor_file.sensor_file_path
-FROM ((log_task
+       log_task.task_id, log_sensor_file.device_id, log_sensor_file.file_start_time, log_sensor_file.sensor_file_path,
+       rc_clinical.neurologist, rc_clinical.primary_diagnosis, rc_clinical.other_primary_diagnosis, rc_clinical.secondary_diagnosis
+FROM (((log_task
 INNER JOIN log_sensor_file ON log_task.log_task_id = log_sensor_file.log_task_id)
-INNER JOIN subject ON log_task.subject_id = subject.subject_id);
+INNER JOIN subject ON log_task.subject_id = subject.subject_id)
+INNER JOIN rc_clinical ON subject.subject_id = rc_clinical.subject_id);
 """
 
 def rebuild_master_data_table(sql_query_cmd):
@@ -163,18 +165,54 @@ def rebuild_master_data_table(sql_query_cmd):
     #                         port=port) as conn:
     #     nb_data_df = neurobooth_terra.query(conn,sql_query_cmd, ['subject_id', 'gender_at_birth', 'dob', 'session_datetime', 'task_log', 'tasks', 'file_names'])
     
+    def get_prim_diag(x):
+        if len(x)==0:
+            return None
+        x_diag=[]
+        for i in x:
+            if str(i) in prim_diag_dict.keys():
+                x_diag.append(prim_diag_dict[str(i)])
+            else:
+                x_diag.append(str(i))
+        return x_diag
+
+    # queries for fetching primary diagnosis and neurologist response arrays
+    prim_diag_qry = """
+    SELECT rc_data_dictionary.response_array FROM rc_data_dictionary
+    WHERE rc_data_dictionary.field_name = 'primary_diagnosis'
+    """
+
+    neurologist_qry = """
+    SELECT rc_data_dictionary.response_array FROM rc_data_dictionary
+    WHERE rc_data_dictionary.field_name = 'neurologist'
+    """
+
     # --- Querying Neurobooth Terra Database --- #
     with SSHTunnelForwarder(**ssh_args) as tunnel:
         with psycopg2.connect(port=tunnel.local_bind_port,
                             host=tunnel.local_bind_host,
                             **db_args) as conn:
-            nb_data_df = neurobooth_terra.query(conn,sql_query_cmd, ['subject_id', 'gender_at_birth', 'dob', 'session_datetime', 'task_log', 'tasks', 'file_names'])
+            nb_data_df = neurobooth_terra.query(conn,sql_query_cmd, ['subject_id', 'gender_at_birth', 'dob', 'session_datetime', 'session_id',
+                                                                    'tasks', 'device_id', 'task_datetime', 'file_names', 'neurologist',
+                                                                    'primary_diagnosis', 'other_primary_diagnosis', 'secondary_diagnosis'])
+            
+            prim_diag_df = neurobooth_terra.query(conn, prim_diag_qry, ['prim_diag_dict'])
 
-    nb_data_df.dropna(inplace=True)
+            neurologist_df = neurobooth_terra.query(conn, neurologist_qry, ['neurologist_dict'])
+    # ------------------------------------------ #
+
+    prim_diag_dict = prim_diag_df.prim_diag_dict[0]
+    neurologist_dict = neurologist_df.neurologist_dict[0]
+    drop_na_cols = ['subject_id', 'gender_at_birth', 'dob', 'session_datetime', 'session_id',
+                    'tasks', 'device_id', 'task_datetime', 'file_names']
+    nb_data_df.dropna(inplace=True, subset=drop_na_cols)
     nb_data_df['age'] = nb_data_df.dob.apply(calculate_age)
+    nb_data_df['primary_diagnosis'] = nb_data_df['primary_diagnosis'].apply(get_prim_diag)
+    nb_data_df['neurologist'] = nb_data_df['neurologist'].apply(lambda x: neurologist_dict[str(int(x))] if not np.isnan(x) and str(int(x)) in neurologist_dict.keys() else None)
     nb_data_df['session_date'] = [i[0].date() for i in nb_data_df.session_datetime]
     nb_data_df['gender'] = ['M' if i=='1.0' else 'F' for i in nb_data_df.gender_at_birth]
-    col_reorder = ['subject_id', 'gender', 'dob', 'age', 'task_log', 'session_date', 'session_datetime', 'tasks', 'file_names']
+    col_reorder = ['subject_id', 'gender', 'dob', 'age', 'neurologist', 'primary_diagnosis', 'other_primary_diagnosis', 'secondary_diagnosis',
+                'session_id', 'session_date', 'session_datetime', 'tasks', 'device_id', 'task_datetime', 'file_names']
     nb_data_df = nb_data_df[col_reorder]
     # creating hdf5 file column
     hdf5_arr = [np.nan] * len(nb_data_df)
@@ -183,13 +221,20 @@ def rebuild_master_data_table(sql_query_cmd):
             if fil[-5:] == '.hdf5':
                 hdf5_arr[ix] = fil
     nb_data_df['hdf5_files'] = hdf5_arr
-    nb_data_df.dropna(inplace=True)
+    # nb_data_df.dropna(inplace=True)
 
     # --- Generating dropdown lists --- #
-    sub_id_list = [str(j) for j in np.sort([int(i) for i in nb_data_df.subject_id.unique()])]
-    session_date_list = [str(i) for i in np.sort(nb_data_df.session_date.unique())]
+    sub_id_list = [str(j) for j in np.sort([int(i) for i in nb_data_df.subject_id.unique()])[::-1]]
+    session_date_list = [str(i) for i in np.sort(nb_data_df.session_date.unique())[::-1]]
     task_list = nb_data_df.tasks.unique()
-    clinical_list = ['Ataxia-Telangiectasia','Spino Cerebellar Ataxia', 'Parkinsonism']
+    # clinical_list = ['Ataxia-Telangiectasia','Spino Cerebellar Ataxia', 'Parkinsonism']
+    diagnoses_list = []
+    for diag_list in nb_data_df.primary_diagnosis:
+        diagnoses_list.extend(diag_list)
+    clinical_list = []
+    for i in  list(prim_diag_dict.values()):
+        if i in diagnoses_list:
+            clinical_list.append(i)
 
     return nb_data_df, sub_id_list, session_date_list, task_list, clinical_list
 
@@ -991,7 +1036,7 @@ app.layout = html.Div([
                                             clearable=False),
                                 ], className="three columns", style={'width':'20%', 'display':'inline-block', 'padding-right':'2%'}),
                         html.Div([
-                                dcc.Markdown('''Select Clinical Indication''', style={'textAlign':'center'}),
+                                dcc.Markdown('''Select Primary Diagnosis''', style={'textAlign':'center'}),
                                 dcc.Dropdown(id="clinical_dropdown",
                                             options=[ {'label': x, 'value': x} for x in clinical_list],
                                             value=clinical_list[0],
@@ -1143,7 +1188,7 @@ def update_table(subid_value, date_value, task_value, clinical_value):
     if dropdown_value in sub_id_list:
         #subfiles = get_file_list(nb_data_df[nb_data_df['subject_id']==dropdown_value])
         session_files = get_task_session_files(nb_data_df[nb_data_df['subject_id']==dropdown_value])
-        scols = ['subject_id', 'gender', 'age', 'session_date', 'tasks', 'task_log']
+        scols = ['subject_id', 'gender', 'age', 'neurologist', 'primary_diagnosis', 'other_primary_diagnosis', 'secondary_diagnosis', 'session_date', 'tasks']
         data_df = nb_data_df[nb_data_df['subject_id']==dropdown_value].astype('str').groupby(['session_date']).agg(lambda x: ' '.join(x.unique()))
         data_df.reset_index(inplace=True)
         data_df = data_df[scols]
@@ -1151,22 +1196,27 @@ def update_table(subid_value, date_value, task_value, clinical_value):
         dropdown_value_datetime = datetime.strptime(dropdown_value, '%Y-%m-%d')
         #subfiles = get_file_list(nb_data_df[nb_data_df['session_date']==dropdown_value_datetime.date()])
         session_files = get_task_session_files(nb_data_df[nb_data_df['session_date']==dropdown_value_datetime.date()])
-        dcols = ['subject_id', 'gender', 'age', 'tasks', 'task_log']
+        dcols = ['subject_id', 'gender', 'age', 'neurologist', 'primary_diagnosis', 'other_primary_diagnosis', 'secondary_diagnosis', 'tasks']
         data_df = nb_data_df[nb_data_df['session_date']==dropdown_value_datetime.date()].astype('str').groupby(['subject_id']).agg(lambda x: ' '.join(x.unique()))
         data_df.reset_index(inplace=True)
         data_df = data_df[dcols]
     elif dropdown_value in task_list:
         #subfiles = get_file_list(nb_data_df[nb_data_df['tasks']==dropdown_value])
         session_files = get_task_session_files(nb_data_df[nb_data_df['tasks']==dropdown_value])
-        tcols = ['subject_id', 'gender', 'age', 'session_date', 'task_log']
+        tcols = ['subject_id', 'gender', 'age', 'neurologist', 'primary_diagnosis', 'other_primary_diagnosis', 'secondary_diagnosis', 'session_date']
         data_df = nb_data_df[nb_data_df['tasks']==dropdown_value].astype('str').groupby(['subject_id']).agg(lambda x: ' '.join(x.unique()))
         data_df.reset_index(inplace=True)
         data_df = data_df[tcols]
     elif dropdown_value in clinical_list:
-        data_df = nb_data_df.sample(n=20)
-        #subfiles = get_file_list(data_df)
-        session_files = get_task_session_files(data_df)
-        data_df = data_df[['subject_id', 'gender', 'age', 'session_date', 'tasks', 'task_log']]
+        filtered_indices = []
+        for ix, diagnosis_list in enumerate(nb_data_df.primary_diagnosis):
+            if dropdown_value in diagnosis_list:
+                filtered_indices.append(ix)
+        session_files = get_task_session_files(nb_data_df.iloc[filtered_indices])
+        ccols = ['subject_id', 'gender', 'age', 'neurologist', 'primary_diagnosis', 'other_primary_diagnosis', 'secondary_diagnosis', 'session_date', 'tasks']
+        data_df = nb_data_df.iloc[filtered_indices].astype('str').groupby(['subject_id']).agg(lambda x: ' '.join(x.unique()))
+        data_df.reset_index(inplace=True)
+        data_df = data_df[ccols]
     
     # Creating primary data table
     data = data_df.to_dict('records')
@@ -1198,6 +1248,7 @@ def update_table(task_session_value):
     task_files=[]
     try:
         tsv = task_session_value.split('_') # task session value split
+        plot_title = tsv[0]+'_'+tsv[1]+' : Accelerometer, Gyroscope, Eye Tracker and Mouse Time Series'
         # get hdf5 files which match subject_id, session_date, and task name
         task_files = nb_data_df[(nb_data_df['subject_id']==tsv[0]) & (nb_data_df['session_date']==datetime.strptime(tsv[1], "%Y-%m-%d").date()) & (nb_data_df['tasks']=='_'.join(tsv[3:]))].hdf5_files.tolist()
         # then filter for task time because same task can be performed multiple times 
@@ -1207,6 +1258,7 @@ def update_table(task_session_value):
         else:
             task_files.append('No file found')
     except:
+        plot_title = 'Accelerometer, Gyroscope, Eye Tracker and Mouse Time Series'
         task_files.append('No file found')
     task_file_df = pd.DataFrame(task_files, columns=['task_files'])
     
@@ -1231,7 +1283,7 @@ def update_table(task_session_value):
                 },
                 yaxis={'showgrid':False},
                 title={
-                    'text':('Acceleration, Gyroscope, Eye Tracker and Mouse Time Series'),
+                    'text':plot_title,
                     'x':0.45,
                     'y':1,
                     'xanchor':'center',
