@@ -145,7 +145,8 @@ def calculate_age(dob):
 sql_query_cmd = """
 SELECT subject.subject_id, subject.gender_at_birth, subject.date_of_birth_subject, log_task.date_times, log_task.log_task_id,
        log_task.task_id, log_sensor_file.device_id, log_sensor_file.file_start_time, log_sensor_file.sensor_file_path,
-       rc_clinical.neurologist, rc_clinical.primary_diagnosis, rc_clinical.other_primary_diagnosis, rc_clinical.secondary_diagnosis
+       rc_clinical.neurologist, rc_clinical.primary_diagnosis, rc_clinical.other_primary_diagnosis, rc_clinical.secondary_diagnosis,
+       rc_clinical.diagnosis_notes
 FROM (((log_task
 INNER JOIN log_sensor_file ON log_task.log_task_id = log_sensor_file.log_task_id)
 INNER JOIN subject ON log_task.subject_id = subject.subject_id)
@@ -194,7 +195,8 @@ def rebuild_master_data_table(sql_query_cmd):
                             **db_args) as conn:
             nb_data_df = neurobooth_terra.query(conn,sql_query_cmd, ['subject_id', 'gender_at_birth', 'dob', 'session_datetime', 'session_id',
                                                                     'tasks', 'device_id', 'task_datetime', 'file_names', 'neurologist',
-                                                                    'primary_diagnosis', 'other_primary_diagnosis', 'secondary_diagnosis'])
+                                                                    'primary_diagnosis', 'other_primary_diagnosis', 'secondary_diagnosis',
+                                                                    'diagnosis_notes'])
             
             prim_diag_df = neurobooth_terra.query(conn, prim_diag_qry, ['prim_diag_dict'])
 
@@ -211,7 +213,7 @@ def rebuild_master_data_table(sql_query_cmd):
     nb_data_df['neurologist'] = nb_data_df['neurologist'].apply(lambda x: neurologist_dict[str(int(x))] if not np.isnan(x) and str(int(x)) in neurologist_dict.keys() else None)
     nb_data_df['session_date'] = [i[0].date() for i in nb_data_df.session_datetime]
     nb_data_df['gender'] = ['M' if i=='1.0' else 'F' for i in nb_data_df.gender_at_birth]
-    col_reorder = ['subject_id', 'gender', 'dob', 'age', 'neurologist', 'primary_diagnosis', 'other_primary_diagnosis', 'secondary_diagnosis',
+    col_reorder = ['subject_id', 'gender', 'dob', 'age', 'neurologist', 'primary_diagnosis', 'other_primary_diagnosis', 'secondary_diagnosis', 'diagnosis_notes',
                 'session_id', 'session_date', 'session_datetime', 'tasks', 'device_id', 'task_datetime', 'file_names']
     nb_data_df = nb_data_df[col_reorder]
     # creating hdf5 file column
@@ -1188,7 +1190,7 @@ def update_table(subid_value, date_value, task_value, clinical_value):
     if dropdown_value in sub_id_list:
         #subfiles = get_file_list(nb_data_df[nb_data_df['subject_id']==dropdown_value])
         session_files = get_task_session_files(nb_data_df[nb_data_df['subject_id']==dropdown_value])
-        scols = ['subject_id', 'gender', 'age', 'neurologist', 'primary_diagnosis', 'other_primary_diagnosis', 'secondary_diagnosis', 'session_date', 'tasks']
+        scols = ['subject_id', 'session_date', 'gender', 'age', 'neurologist', 'primary_diagnosis', 'other_primary_diagnosis', 'secondary_diagnosis', 'diagnosis_notes', 'tasks']
         data_df = nb_data_df[nb_data_df['subject_id']==dropdown_value].astype('str').groupby(['session_date']).agg(lambda x: ' '.join(x.unique()))
         data_df.reset_index(inplace=True)
         data_df = data_df[scols]
@@ -1196,14 +1198,14 @@ def update_table(subid_value, date_value, task_value, clinical_value):
         dropdown_value_datetime = datetime.strptime(dropdown_value, '%Y-%m-%d')
         #subfiles = get_file_list(nb_data_df[nb_data_df['session_date']==dropdown_value_datetime.date()])
         session_files = get_task_session_files(nb_data_df[nb_data_df['session_date']==dropdown_value_datetime.date()])
-        dcols = ['subject_id', 'gender', 'age', 'neurologist', 'primary_diagnosis', 'other_primary_diagnosis', 'secondary_diagnosis', 'tasks']
+        dcols = ['subject_id', 'gender', 'age', 'neurologist', 'primary_diagnosis', 'other_primary_diagnosis', 'secondary_diagnosis', 'diagnosis_notes', 'tasks']
         data_df = nb_data_df[nb_data_df['session_date']==dropdown_value_datetime.date()].astype('str').groupby(['subject_id']).agg(lambda x: ' '.join(x.unique()))
         data_df.reset_index(inplace=True)
         data_df = data_df[dcols]
     elif dropdown_value in task_list:
         #subfiles = get_file_list(nb_data_df[nb_data_df['tasks']==dropdown_value])
         session_files = get_task_session_files(nb_data_df[nb_data_df['tasks']==dropdown_value])
-        tcols = ['subject_id', 'gender', 'age', 'neurologist', 'primary_diagnosis', 'other_primary_diagnosis', 'secondary_diagnosis', 'session_date']
+        tcols = ['subject_id', 'session_date', 'gender', 'age', 'neurologist', 'primary_diagnosis', 'other_primary_diagnosis', 'secondary_diagnosis', 'diagnosis_notes']
         data_df = nb_data_df[nb_data_df['tasks']==dropdown_value].astype('str').groupby(['subject_id']).agg(lambda x: ' '.join(x.unique()))
         data_df.reset_index(inplace=True)
         data_df = data_df[tcols]
@@ -1213,7 +1215,7 @@ def update_table(subid_value, date_value, task_value, clinical_value):
             if dropdown_value in diagnosis_list:
                 filtered_indices.append(ix)
         session_files = get_task_session_files(nb_data_df.iloc[filtered_indices])
-        ccols = ['subject_id', 'gender', 'age', 'neurologist', 'primary_diagnosis', 'other_primary_diagnosis', 'secondary_diagnosis', 'session_date', 'tasks']
+        ccols = ['subject_id', 'session_date', 'gender', 'age', 'neurologist', 'primary_diagnosis', 'other_primary_diagnosis', 'secondary_diagnosis', 'diagnosis_notes', 'tasks']
         data_df = nb_data_df.iloc[filtered_indices].astype('str').groupby(['subject_id']).agg(lambda x: ' '.join(x.unique()))
         data_df.reset_index(inplace=True)
         data_df = data_df[ccols]
