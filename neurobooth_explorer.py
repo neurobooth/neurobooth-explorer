@@ -188,6 +188,12 @@ def rebuild_master_data_table(sql_query_cmd):
     WHERE rc_data_dictionary.field_name = 'neurologist'
     """
 
+    # query for bars scores
+    bars_qry='''
+    SELECT subject_id, end_time_ataxia_pd_scales, bars_total_score, bars_gait, bars_heel_shin_left, bars_heel_shin_right, bars_finger_nose_left,
+    bars_finger_nose_right, bars_speech, bars_oculomotor from rc_ataxia_pd_scales
+    '''
+
     # --- Querying Neurobooth Terra Database --- #
     with SSHTunnelForwarder(**ssh_args) as tunnel:
         with psycopg2.connect(port=tunnel.local_bind_port,
@@ -201,6 +207,12 @@ def rebuild_master_data_table(sql_query_cmd):
             prim_diag_df = neurobooth_terra.query(conn, prim_diag_qry, ['prim_diag_dict'])
 
             neurologist_df = neurobooth_terra.query(conn, neurologist_qry, ['neurologist_dict'])
+
+            bars_df = neurobooth_terra.query(conn, bars_qry, ['subject_id', 'end_time_ataxia_pd_scales',
+                                                            'bars_total_score', 'bars_gait',
+                                                            'bars_heel_shin_left', 'bars_heel_shin_right',
+                                                            'bars_finger_nose_left', 'bars_finger_nose_right',
+                                                            'bars_speech', 'bars_oculomotor'])
     # ------------------------------------------ #
 
     prim_diag_dict = prim_diag_df.prim_diag_dict[0]
@@ -230,18 +242,16 @@ def rebuild_master_data_table(sql_query_cmd):
     session_date_list = [str(i) for i in np.sort(nb_data_df.session_date.unique())[::-1]]
     task_list = nb_data_df.tasks.unique()
     # clinical_list = ['Ataxia-Telangiectasia','Spino Cerebellar Ataxia', 'Parkinsonism']
-    diagnoses_list = []
-    for diag_list in nb_data_df.primary_diagnosis:
-        diagnoses_list.extend(diag_list)
+    diagnoses_list = [diag for diag_list in nb_data_df.primary_diagnosis.tolist() for diag in diag_list]
     clinical_list = []
-    for i in  list(prim_diag_dict.values()):
+    for i in  list(prim_diag_dict.values()): # this loop is so that list elements are in same order as db response array
         if i in diagnoses_list:
             clinical_list.append(i)
 
-    return nb_data_df, sub_id_list, session_date_list, task_list, clinical_list
+    return nb_data_df, bars_df, sub_id_list, session_date_list, task_list, clinical_list
 
 # Fetching data at app launch
-nb_data_df, sub_id_list, session_date_list, task_list, clinical_list = rebuild_master_data_table(sql_query_cmd)
+nb_data_df, bars_df, sub_id_list, session_date_list, task_list, clinical_list = rebuild_master_data_table(sql_query_cmd)
 
 
 # --- Function to extract all file list from dataframe --- #
@@ -1050,6 +1060,13 @@ app.layout = html.Div([
                                 style_data={'whiteSpace': 'normal', 'height': 'auto',}
                                 ),
                         html.Hr(),
+                        html.H3('BARS Scores', style={'textAlign':'center'}),
+                        dash_table.DataTable(
+                                id='bars_datatable',
+                                # style_table={'maxHeight': '400px','overflowY': 'scroll', 'overflowX': 'auto'},
+                                # style_data={'whiteSpace': 'normal', 'height': 'auto',}
+                                ),
+                        html.Hr(),
                         html.H3('Task Session Information', style={'textAlign':'center'}),
                         html.Div(
                                 dcc.Markdown('''
@@ -1122,7 +1139,7 @@ app.layout = html.Div([
                                                     value=0,
                                                     step=1,
                                                     marks={i: str(i) for i in range(len(face_landmark_x))[::10]},
-                                                    updatemode='drag')
+                                                    updatemode='mouseup')
                                             ], style={'width':'79%', 'padding-left':'8%', 'padding-right':'5%', 'padding-bottom':'1%'})
                                         ], className="nine columns", style={'width':'70%', 'display':'inline-block'}),#, 'padding-left':'3%', 'padding-right':'2%'}),
                                 html.Div([
@@ -1238,7 +1255,9 @@ def update_table(subid_value, date_value, task_value, clinical_value):
 
 
 @app.callback(
-    [Output(component_id='task_session_file_datatable', component_property='data'),
+    [Output(component_id='bars_datatable', component_property='data'),
+    Output(component_id='bars_datatable', component_property='columns'),
+    Output(component_id='task_session_file_datatable', component_property='data'),
     Output(component_id='task_session_file_datatable', component_property='columns'),
     Output('timeseries_graph', 'figure'),
     Output('specgram_graph', 'figure'),
@@ -1247,6 +1266,18 @@ def update_table(subid_value, date_value, task_value, clinical_value):
     Output("rc_notes_markdown", "children")],
     Input("task_session_dropdown", "value"))
 def update_table(task_session_value):
+    # setting up BARS Scores datatable
+    if task_session_value:
+        subj_id = task_session_value.split('_')[0]
+    else:
+        subj_id = None
+    bars_data_df = bars_df[bars_df['subject_id']==subj_id]
+    if len(bars_data_df)==0:
+        bars_data_df.loc[0, 'subject_id']='BARS score not available for '+str(subj_id)
+    bars_data = bars_data_df.to_dict('records')
+    bars_columns = [{'name': col, 'id': col} for col in bars_df.columns]
+    # --- #
+
     task_files=[]
     try:
         tsv = task_session_value.split('_') # task session value split
@@ -1341,7 +1372,7 @@ def update_table(task_session_value):
     specgram_fig = go.Figure(data=specgram_data, layout=specgram_layout)
     specgram_fig.update_layout(legend_x=1, legend_y=1)
 
-    return data, columns, timeseries_fig, specgram_fig, None, length_data, rc_notes_markdown
+    return bars_data, bars_columns, data, columns, timeseries_fig, specgram_fig, None, length_data, rc_notes_markdown
 
 
 @app.callback(
@@ -1396,6 +1427,7 @@ def on_button_click(n_clicks_timestamp):
     
     # defining global variables
     global nb_data_df
+    global bars_df
     global sub_id_list
     global session_date_list
     global task_list
@@ -1403,7 +1435,7 @@ def on_button_click(n_clicks_timestamp):
     #global all_file_list
 
     # Retrieving new data from database
-    nb_data_df, sub_id_list, session_date_list, task_list, clinical_list = rebuild_master_data_table(sql_query_cmd)
+    nb_data_df, bars_df, sub_id_list, session_date_list, task_list, clinical_list = rebuild_master_data_table(sql_query_cmd)
     
     # Generate new all_file_list from new nb_data_df
     #all_file_list = get_file_list(nb_data_df)
