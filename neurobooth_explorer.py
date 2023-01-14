@@ -1061,17 +1061,22 @@ app.layout = html.Div([
                                 ),
                         html.Hr(),
                         html.H3('BARS Scores', style={'textAlign':'center'}),
+                        html.Div(
+                                dcc.Markdown('''
+                                * BARS Scores update when a Task is selected in the dropdown below, and the data renders in the Timeseries panel
+                                '''),style={'padding-left':'8%'},
+                                ),
                         dash_table.DataTable(
                                 id='bars_datatable',
                                 # style_table={'maxHeight': '400px','overflowY': 'scroll', 'overflowX': 'auto'},
                                 # style_data={'whiteSpace': 'normal', 'height': 'auto',}
                                 ),
                         html.Hr(),
-                        html.H3('Task Session Information', style={'textAlign':'center'}),
+                        html.H3('Task Information', style={'textAlign':'center'}),
                         html.Div(
                                 dcc.Markdown('''
-                                * Use dropdown to select a task session
-                                * The table shows data files associated with the selected task session
+                                * Select a task from dropdown to view data
+                                * The table shows data files associated with the selected task
                                 '''),style={'padding-left':'8%'},
                                 ),
                         html.Div([
@@ -1085,6 +1090,7 @@ app.layout = html.Div([
                                         dash_table.DataTable(
                                                 id='task_session_file_datatable',
                                                 style_table={'maxHeight': '150px','overflowY': 'scroll', 'overflowX': 'auto'},
+                                                style_cell={'textAlign': 'left'},
                                                 ),
                                         ], className="nine columns", style={'width':'55%', 'display':'inline-block', 'padding-left':'3%', 'verticalAlign':'top'}),
                                 ]),
@@ -1247,8 +1253,10 @@ def update_table(subid_value, date_value, task_value, clinical_value):
     #val = subfile_list[0]
 
     # Generating task session file dropdown list
-    task_session_opts = [ {'label': x, 'value': x} for x in np.sort(session_files)]
-    task_session_val = np.sort(session_files)[-1]
+    session_files = list(np.sort(session_files))
+    session_files.insert(0, 'Select task to view data')
+    task_session_opts = [ {'label': x, 'value': x} for x in session_files]
+    task_session_val = session_files[0]
 
     #return data, columns, opts, val, task_session_opts, task_session_val
     return data, columns, task_session_opts, task_session_val
@@ -1266,6 +1274,9 @@ def update_table(subid_value, date_value, task_value, clinical_value):
     Output("rc_notes_markdown", "children")],
     Input("task_session_dropdown", "value"))
 def update_table(task_session_value):
+    if task_session_value=='Select task to view data':
+        task_session_value=None
+    
     # setting up BARS Scores datatable
     if task_session_value:
         subj_id = task_session_value.split('_')[0]
@@ -1273,7 +1284,7 @@ def update_table(task_session_value):
         subj_id = None
     bars_data_df = bars_df[bars_df['subject_id']==subj_id]
     if len(bars_data_df)==0:
-        bars_data_df.loc[0, 'subject_id']='BARS score not available for '+str(subj_id)
+        bars_data_df.loc[0, 'subject_id']='BARS scores not available for '+str(subj_id)
     bars_data = bars_data_df.to_dict('records')
     bars_columns = [{'name': col, 'id': col} for col in bars_df.columns]
     # --- #
