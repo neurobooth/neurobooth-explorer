@@ -224,7 +224,7 @@ def rebuild_master_data_table(sql_query_cmd):
     nb_data_df['primary_diagnosis'] = nb_data_df['primary_diagnosis'].apply(get_prim_diag)
     nb_data_df['neurologist'] = nb_data_df['neurologist'].apply(lambda x: neurologist_dict[str(int(x))] if not np.isnan(x) and str(int(x)) in neurologist_dict.keys() else None)
     nb_data_df['session_date'] = [i[0].date() for i in nb_data_df.session_datetime]
-    nb_data_df['gender'] = ['M' if i=='1.0' else 'F' for i in nb_data_df.gender_at_birth]
+    nb_data_df['gender'] = ['M' if int(i)==1 else 'F' for i in nb_data_df.gender_at_birth]
     col_reorder = ['subject_id', 'gender', 'dob', 'age', 'neurologist', 'primary_diagnosis', 'other_primary_diagnosis', 'secondary_diagnosis', 'diagnosis_notes',
                 'session_id', 'session_date', 'session_datetime', 'tasks', 'device_id', 'task_datetime', 'file_names']
     nb_data_df = nb_data_df[col_reorder]
