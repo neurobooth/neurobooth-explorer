@@ -1063,13 +1063,13 @@ app.layout = html.Div([
                         html.H3('BARS Scores', style={'textAlign':'center'}),
                         html.Div(
                                 dcc.Markdown('''
-                                * BARS Scores update when a Task is selected in the dropdown below, and the data renders in the Timeseries panel
+                                * BARS Scores (shown if available) for subject_ids in the table above
                                 '''),style={'padding-left':'8%'},
                                 ),
                         dash_table.DataTable(
                                 id='bars_datatable',
-                                # style_table={'maxHeight': '400px','overflowY': 'scroll', 'overflowX': 'auto'},
-                                # style_data={'whiteSpace': 'normal', 'height': 'auto',}
+                                style_table={'maxHeight': '400px','overflowY': 'scroll', 'overflowX': 'auto'},
+                                style_data={'whiteSpace': 'normal', 'height': 'auto',}
                                 ),
                         html.Hr(),
                         html.H3('Task Information', style={'textAlign':'center'}),
@@ -1177,7 +1177,9 @@ app.layout = html.Div([
 
 
 @app.callback(
-    [Output(component_id='datatable', component_property='data'),
+    [Output(component_id='bars_datatable', component_property='data'),
+    Output(component_id='bars_datatable', component_property='columns'),
+    Output(component_id='datatable', component_property='data'),
     Output(component_id='datatable', component_property='columns'),
     #Output(component_id='file_list_dropdown', component_property='options'),
     #Output(component_id='file_list_dropdown', component_property='value'),
@@ -1243,6 +1245,16 @@ def update_table(subid_value, date_value, task_value, clinical_value):
         data_df.reset_index(inplace=True)
         data_df = data_df[ccols]
     
+    # setting up BARS Scores datatable
+    subj_id_list = data_df.subject_id.tolist()
+    if len(subj_id_list):
+        bars_data_df = bars_df[bars_df['subject_id'].isin(subj_id_list)]
+    if len(bars_data_df)==0:
+        bars_data_df.loc[0, 'subject_id']='BARS scores not available'
+    bars_data = bars_data_df.to_dict('records')
+    bars_columns = [{'name': col, 'id': col} for col in bars_df.columns]
+    # --- #
+    
     # Creating primary data table
     data = data_df.to_dict('records')
     columns = [{'name': col, 'id': col} for col in data_df.columns]
@@ -1259,13 +1271,11 @@ def update_table(subid_value, date_value, task_value, clinical_value):
     task_session_val = session_files[0]
 
     #return data, columns, opts, val, task_session_opts, task_session_val
-    return data, columns, task_session_opts, task_session_val
+    return bars_data, bars_columns, data, columns, task_session_opts, task_session_val
 
 
 @app.callback(
-    [Output(component_id='bars_datatable', component_property='data'),
-    Output(component_id='bars_datatable', component_property='columns'),
-    Output(component_id='task_session_file_datatable', component_property='data'),
+    [Output(component_id='task_session_file_datatable', component_property='data'),
     Output(component_id='task_session_file_datatable', component_property='columns'),
     Output('timeseries_graph', 'figure'),
     Output('specgram_graph', 'figure'),
@@ -1277,18 +1287,6 @@ def update_table(task_session_value):
     if task_session_value=='Select task to view data':
         task_session_value=None
     
-    # setting up BARS Scores datatable
-    if task_session_value:
-        subj_id = task_session_value.split('_')[0]
-    else:
-        subj_id = None
-    bars_data_df = bars_df[bars_df['subject_id']==subj_id]
-    if len(bars_data_df)==0:
-        bars_data_df.loc[0, 'subject_id']='BARS scores not available for '+str(subj_id)
-    bars_data = bars_data_df.to_dict('records')
-    bars_columns = [{'name': col, 'id': col} for col in bars_df.columns]
-    # --- #
-
     task_files=[]
     try:
         tsv = task_session_value.split('_') # task session value split
@@ -1388,7 +1386,7 @@ def update_table(task_session_value):
     specgram_fig = go.Figure(data=specgram_data, layout=specgram_layout)
     specgram_fig.update_layout(legend_x=1, legend_y=1)
 
-    return bars_data, bars_columns, data, columns, timeseries_fig, specgram_fig, None, length_data, rc_notes_markdown
+    return data, columns, timeseries_fig, specgram_fig, None, length_data, rc_notes_markdown
 
 
 @app.callback(
