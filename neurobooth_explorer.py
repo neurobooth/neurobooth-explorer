@@ -1292,7 +1292,12 @@ def update_table(task_session_value):
     task_files=[]
     try:
         tsv = task_session_value.split('_') # task session value split
-        plot_title = tsv[0]+'_'+tsv[1]+' : Accelerometer, Gyroscope, Eye Tracker and Mouse Time Series'
+        task_str = ''
+        if tsv[-1]=='1':
+            task_str = '_'.join(tsv[3:-2])
+        else:
+            task_str = '_'.join(tsv[3:-1])
+        plot_title = tsv[0]+'_'+tsv[1]+'_'+task_str+' : Accelerometer, Gyroscope, Eye Tracker and Mouse Time Series'
         # get hdf5 files which match subject_id, session_date, and task name
         task_files = nb_data_df[(nb_data_df['subject_id']==tsv[0]) & (nb_data_df['session_date']==datetime.strptime(tsv[1], "%Y-%m-%d").date()) & (nb_data_df['tasks']=='_'.join(tsv[3:]))].hdf5_files.tolist()
         # then filter for task time because same task can be performed multiple times 
