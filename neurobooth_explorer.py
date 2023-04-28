@@ -19,6 +19,7 @@ import pandas as pd
 
 import os.path as op
 import glob
+import random
 
 from h5io import read_hdf5
 
@@ -292,6 +293,21 @@ def rebuild_master_data_table(sql_query_cmd):
 nb_data_df, bars_df, sub_id_list, session_date_list, task_list, clinical_list = rebuild_master_data_table(sql_query_cmd)
 
 
+# Building Control subjects list and subset dataframe at app launch
+control_indices = []
+for ix, diagnosis_list in enumerate(nb_data_df.primary_diagnosis):
+    if 'Control' in diagnosis_list:
+        control_indices.append(ix)
+
+ctrl_df = nb_data_df.iloc[control_indices]
+ctrl_list = ctrl_df.subject_id.unique()
+
+# --- Function to get random Control subject EyeTracker hdf5 file --- #
+def get_rnd_ctrl_et_hdf5(task):
+    rnd_ctrl = random.choice(ctrl_list)
+    return ctrl_df[(ctrl_df['subject_id']==rnd_ctrl) & (ctrl_df['tasks']==task) & (ctrl_df['device_id']=='Eyelink_1')].sample(n=1).hdf5_files.iloc[0]
+
+
 # --- Function to extract all file list from dataframe --- #
 # def get_file_list(fdf):
 #     file_list=[]
@@ -495,12 +511,42 @@ def parse_files(task_files):
 
         for file in task_files:
             file_loc = get_file_loc(file)
+
+            # Computing offsets for adding Control subject time series #########
+            if 'Eyelink' in file and file.endswith('.hdf5'):
+                et_mdata = read_hdf5(op.join(file_loc, file))['marker']
+                for ix, txt in enumerate(et_mdata['time_series']):
+                    if '!V TARGET_POS' in txt[0]:
+                        et_trg_start = et_mdata['time_stamps'][ix]
+                        break
+
+                for ctrl_file in task_files:
+                    if ctrl_file.endswith('CONTROL'):
+                        ctrl_mdata = read_hdf5(op.join(file_loc, ctrl_file[:-7]))['marker']
+                        for ix, txt in enumerate(ctrl_mdata['time_series']):
+                            if '!V TARGET_POS' in txt[0]:
+                                ctrl_trg_start = ctrl_mdata['time_stamps'][ix]
+                                break
+
+                ctrl_trg_corr = et_trg_start - ctrl_trg_start
+                ctrl_dt_corr = float(et_mdata['time_series'][0][0].split('_')[-1])
+            ####################################################################
+            
             if 'Eyelink' in file:
                 try:
-                    fname = glob.glob(op.join(file_loc, file))[0]
+                    if file.endswith('CONTROL'):
+                        fname = glob.glob(op.join(file_loc, file[:-7]))[0]
+                    else:
+                        fname = glob.glob(op.join(file_loc, file))[0]
                     complete_file = read_hdf5(fname)
                     fdata = complete_file['device_data']
                     mdata = complete_file['marker']
+
+                    # correcting raw timestamps from CTR machine for Control subject
+                    if file.endswith('CONTROL'):
+                        fdata['time_stamps'] = fdata['time_stamps'] + ctrl_trg_corr
+                        mdata['time_stamps'] = mdata['time_stamps'] + ctrl_trg_corr
+                    ################################################################
 
                     len_df.at[0, 'Eyelink'] = len(fdata['time_series'])
 
@@ -516,6 +562,10 @@ def parse_files(task_files):
                     ############################################################
 
                     dt_corr = int(float(mdata['time_series'][0][0].split('_')[-1]) - mdata['time_stamps'][0]) # datetime-correction factor : time correction offset for correcting LSL time to local time
+                    # correcting Control subject corrected CTR timestamps to Patient subject's local time
+                    if file.endswith('CONTROL'):
+                        dt_corr = int(ctrl_dt_corr - mdata['time_stamps'][0])
+                    #####################################################################################
                     et_datetime = et_df.timestamps.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
 
                     # correcting control timestamps with eyelink timestamp correction factor and coverting to present day datetime
@@ -1115,13 +1165,13 @@ app.layout = html.Div([
                         html.H3('BARS Scores', style={'textAlign':'center'}),
                         html.Div(
                                 dcc.Markdown('''
-                                * BARS Scores update when a Task is selected in the dropdown below, and the data renders in the Timeseries panel
+                                * BARS Scores (shown if available) for subject_ids in the table above
                                 '''),style={'padding-left':'8%'},
                                 ),
                         dash_table.DataTable(
                                 id='bars_datatable',
-                                # style_table={'maxHeight': '400px','overflowY': 'scroll', 'overflowX': 'auto'},
-                                # style_data={'whiteSpace': 'normal', 'height': 'auto',}
+                                style_table={'maxHeight': '400px','overflowY': 'scroll', 'overflowX': 'auto'},
+                                style_data={'whiteSpace': 'normal', 'height': 'auto',}
                                 ),
                         html.Hr(),
                         html.H3('Task Information', style={'textAlign':'center'}),
@@ -1229,7 +1279,9 @@ app.layout = html.Div([
 
 
 @app.callback(
-    [Output(component_id='datatable', component_property='data'),
+    [Output(component_id='bars_datatable', component_property='data'),
+    Output(component_id='bars_datatable', component_property='columns'),
+    Output(component_id='datatable', component_property='data'),
     Output(component_id='datatable', component_property='columns'),
     #Output(component_id='file_list_dropdown', component_property='options'),
     #Output(component_id='file_list_dropdown', component_property='value'),
@@ -1295,6 +1347,16 @@ def update_table(subid_value, date_value, task_value, clinical_value):
         data_df.reset_index(inplace=True)
         data_df = data_df[ccols]
     
+    # setting up BARS Scores datatable
+    subj_id_list = data_df.subject_id.tolist()
+    if len(subj_id_list):
+        bars_data_df = bars_df[bars_df['subject_id'].isin(subj_id_list)]
+    if len(bars_data_df)==0:
+        bars_data_df.loc[0, 'subject_id']='BARS scores not available'
+    bars_data = bars_data_df.to_dict('records')
+    bars_columns = [{'name': col, 'id': col} for col in bars_df.columns]
+    # --- #
+    
     # Creating primary data table
     data = data_df.to_dict('records')
     columns = [{'name': col, 'id': col} for col in data_df.columns]
@@ -1311,13 +1373,11 @@ def update_table(subid_value, date_value, task_value, clinical_value):
     task_session_val = session_files[0]
 
     #return data, columns, opts, val, task_session_opts, task_session_val
-    return data, columns, task_session_opts, task_session_val
+    return bars_data, bars_columns, data, columns, task_session_opts, task_session_val
 
 
 @app.callback(
-    [Output(component_id='bars_datatable', component_property='data'),
-    Output(component_id='bars_datatable', component_property='columns'),
-    Output(component_id='task_session_file_datatable', component_property='data'),
+    [Output(component_id='task_session_file_datatable', component_property='data'),
     Output(component_id='task_session_file_datatable', component_property='columns'),
     Output('timeseries_graph', 'figure'),
     Output('specgram_graph', 'figure'),
@@ -1329,28 +1389,22 @@ def update_table(task_session_value):
     if task_session_value=='Select task to view data':
         task_session_value=None
     
-    # setting up BARS Scores datatable
-    if task_session_value:
-        subj_id = task_session_value.split('_')[0]
-    else:
-        subj_id = None
-    bars_data_df = bars_df[bars_df['subject_id']==subj_id]
-    if len(bars_data_df)==0:
-        bars_data_df.loc[0, 'subject_id']='BARS scores not available for '+str(subj_id)
-    bars_data = bars_data_df.to_dict('records')
-    bars_columns = [{'name': col, 'id': col} for col in bars_df.columns]
-    # --- #
-
     task_files=[]
     try:
         tsv = task_session_value.split('_') # task session value split
-        plot_title = tsv[0]+'_'+tsv[1]+' : Accelerometer, Gyroscope, Eye Tracker and Mouse Time Series'
+        task_str = ''
+        if tsv[-1]=='1':
+            task_str = '_'.join(tsv[3:-2])
+        else:
+            task_str = '_'.join(tsv[3:-1])
+        plot_title = tsv[0]+'_'+tsv[1]+'_'+task_str+' : Accelerometer, Gyroscope, Eye Tracker and Mouse Time Series'
         # get hdf5 files which match subject_id, session_date, and task name
         task_files = nb_data_df[(nb_data_df['subject_id']==tsv[0]) & (nb_data_df['session_date']==datetime.strptime(tsv[1], "%Y-%m-%d").date()) & (nb_data_df['tasks']=='_'.join(tsv[3:]))].hdf5_files.tolist()
         # then filter for task time because same task can be performed multiple times 
         task_files = [fil for fil in task_files if tsv[2] in fil]
         if len(task_files) > 0:
             task_files = np.sort(list(set(task_files)))
+            task_files = np.append(task_files, get_rnd_ctrl_et_hdf5('_'.join(tsv[3:]))+'CONTROL')
         else:
             task_files.append('No file found')
     except:
@@ -1435,7 +1489,7 @@ def update_table(task_session_value):
     specgram_fig = go.Figure(data=specgram_data, layout=specgram_layout)
     specgram_fig.update_layout(legend_x=1, legend_y=1)
 
-    return bars_data, bars_columns, data, columns, timeseries_fig, specgram_fig, None, length_data, rc_notes_markdown
+    return data, columns, timeseries_fig, specgram_fig, None, length_data, rc_notes_markdown
 
 
 @app.callback(
