@@ -467,6 +467,7 @@ def parse_files(task_files):
                 for ix, txt in enumerate(et_mdata['time_series']):
                     if '!V TARGET_POS' in txt[0]:
                         et_trg_start = et_mdata['time_stamps'][ix]
+                        ctrl_dt_corr = float(et_mdata['time_series'][0][ix].split('_')[-1])
                         break
 
                 for ctrl_file in task_files:
@@ -478,7 +479,7 @@ def parse_files(task_files):
                                 break
 
                 ctrl_trg_corr = et_trg_start - ctrl_trg_start
-                ctrl_dt_corr = float(et_mdata['time_series'][0][0].split('_')[-1])
+                # ctrl_dt_corr = float(et_mdata['time_series'][0][0].split('_')[-1])
             ####################################################################
 
             if 'Eyelink' in file:
