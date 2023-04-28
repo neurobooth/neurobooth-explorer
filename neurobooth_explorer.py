@@ -19,6 +19,7 @@ import pandas as pd
 
 import os.path as op
 import glob
+import random
 
 from h5io import read_hdf5
 
@@ -254,6 +255,21 @@ def rebuild_master_data_table(sql_query_cmd):
 nb_data_df, bars_df, sub_id_list, session_date_list, task_list, clinical_list = rebuild_master_data_table(sql_query_cmd)
 
 
+# Building Control subjects list and subset dataframe at app launch
+control_indices = []
+for ix, diagnosis_list in enumerate(nb_data_df.primary_diagnosis):
+    if 'Control' in diagnosis_list:
+        control_indices.append(ix)
+
+ctrl_df = nb_data_df.iloc[control_indices]
+ctrl_list = ctrl_df.subject_id.unique()
+
+# --- Function to get random Control subject EyeTracker hdf5 file --- #
+def get_rnd_ctrl_et_hdf5(task):
+    rnd_ctrl = random.choice(ctrl_list)
+    return ctrl_df[(ctrl_df['subject_id']==rnd_ctrl) & (ctrl_df['tasks']==task) & (ctrl_df['device_id']=='Eyelink_1')].sample(n=1).hdf5_files.iloc[0]
+
+
 # --- Function to extract all file list from dataframe --- #
 # def get_file_list(fdf):
 #     file_list=[]
@@ -444,12 +460,42 @@ def parse_files(task_files):
     else:
 
         for file in task_files:
+
+            # Computing offsets for adding Control subject time series #########
+            if 'Eyelink' in file and file.endswith('.hdf5'):
+                et_mdata = read_hdf5(op.join(file_loc, file))['marker']
+                for ix, txt in enumerate(et_mdata['time_series']):
+                    if '!V TARGET_POS' in txt[0]:
+                        et_trg_start = et_mdata['time_stamps'][ix]
+                        break
+
+                for ctrl_file in task_files:
+                    if ctrl_file.endswith('CONTROL'):
+                        ctrl_mdata = read_hdf5(op.join(file_loc, ctrl_file[:-7]))['marker']
+                        for ix, txt in enumerate(ctrl_mdata['time_series']):
+                            if '!V TARGET_POS' in txt[0]:
+                                ctrl_trg_start = ctrl_mdata['time_stamps'][ix]
+                                break
+
+                ctrl_trg_corr = et_trg_start - ctrl_trg_start
+                ctrl_dt_corr = float(et_mdata['time_series'][0][0].split('_')[-1])
+            ####################################################################
+
             if 'Eyelink' in file:
                 try:
-                    fname = glob.glob(op.join(file_loc, file))[0]
+                    if file.endswith('CONTROL'):
+                        fname = glob.glob(op.join(file_loc, file[:-7]))[0]
+                    else:
+                        fname = glob.glob(op.join(file_loc, file))[0]
                     complete_file = read_hdf5(fname)
                     fdata = complete_file['device_data']
                     mdata = complete_file['marker']
+
+                    # correcting raw timestamps from CTR machine for Control subject
+                    if file.endswith('CONTROL'):
+                        fdata['time_stamps'] = fdata['time_stamps'] + ctrl_trg_corr
+                        mdata['time_stamps'] = mdata['time_stamps'] + ctrl_trg_corr
+                    ################################################################
 
                     len_df.at[0, 'Eyelink'] = len(fdata['time_series'])
 
@@ -465,6 +511,10 @@ def parse_files(task_files):
                     ############################################################
 
                     dt_corr = int(float(mdata['time_series'][0][0].split('_')[-1]) - mdata['time_stamps'][0]) # datetime-correction factor : time correction offset for correcting LSL time to local time
+                    # correcting Control subject corrected CTR timestamps to Patient subject's local time
+                    if file.endswith('CONTROL'):
+                        dt_corr = int(ctrl_dt_corr - mdata['time_stamps'][0])
+                    #####################################################################################
                     et_datetime = et_df.timestamps.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
 
                     # correcting control timestamps with eyelink timestamp correction factor and coverting to present day datetime
@@ -1302,6 +1352,7 @@ def update_table(task_session_value):
         task_files = [fil for fil in task_files if tsv[2] in fil]
         if len(task_files) > 0:
             task_files = np.sort(list(set(task_files)))
+            task_files = np.append(task_files, get_rnd_ctrl_et_hdf5('_'.join(tsv[3:]))+'CONTROL')
         else:
             task_files.append('No file found')
     except:
