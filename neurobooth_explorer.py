@@ -355,6 +355,8 @@ def get_task_session_files(fdf):
 # --- Function for getting start and end task times for movement tasks --- #
 def get_movement_task_start_end_times(mv_filename, fig):
     try:
+        if mv_filename.endswith('CONTROL'): # don't plot task start and end time for CONTROL trace
+            return fig
         file_loc = get_file_loc(mv_filename)
         fname = glob.glob(op.join(file_loc, mv_filename))[0]
     except:
@@ -371,7 +373,7 @@ def get_movement_task_start_end_times(mv_filename, fig):
             end_local_ts.append(float(txt[0].split('_')[-1]))
 
     if start_local_ts and end_local_ts:
-        for start,end in zip(start_local_ts, end_local_ts):    
+        for start,end in zip(start_local_ts, end_local_ts):
             xstart=datetime.fromtimestamp(start)
             xend=datetime.fromtimestamp(end)
             fig.add_shape(type="rect",
@@ -514,24 +516,26 @@ def parse_files(task_files):
 
             # Computing offsets for adding Control subject time series #########
             if 'Eyelink' in file and file.endswith('.hdf5'):
-                et_mdata = read_hdf5(op.join(file_loc, file))['marker']
-                for ix, txt in enumerate(et_mdata['time_series']):
+                et_trg_start=0
+                ctrl_trg_start=0
+                
+                et_data = read_hdf5(op.join(file_loc, file))
+                ctrl_dt_corr = int(float(et_data['marker']['time_series'][0][0].split('_')[-1]) - et_data['marker']['time_stamps'][0])
+                for ix, txt in enumerate(et_data['marker']['time_series']):
                     if '!V TARGET_POS' in txt[0]:
-                        et_trg_start = et_mdata['time_stamps'][ix]
-                        ctrl_dt_corr = float(et_mdata['time_series'][0][ix].split('_')[-1])
+                        et_trg_start = et_data['marker']['time_stamps'][ix]
                         break
 
                 for ctrl_file in task_files:
                     if ctrl_file.endswith('CONTROL'):
                         ctrl_file_loc = get_file_loc(ctrl_file.replace('CONTROL', ''))
-                        ctrl_mdata = read_hdf5(op.join(ctrl_file_loc, ctrl_file.replace('CONTROL', '')))['marker']
-                        for ix, txt in enumerate(ctrl_mdata['time_series']):
+                        ctrl_data = read_hdf5(op.join(ctrl_file_loc, ctrl_file.replace('CONTROL', '')))
+                        for ix, txt in enumerate(ctrl_data['marker']['time_series']):
                             if '!V TARGET_POS' in txt[0]:
-                                ctrl_trg_start = ctrl_mdata['time_stamps'][ix]
+                                ctrl_trg_start = ctrl_data['marker']['time_stamps'][ix]
                                 break
-
+                
                 ctrl_trg_corr = et_trg_start - ctrl_trg_start
-                # ctrl_dt_corr = float(et_mdata['time_series'][0][0].split('_')[-1])
             ####################################################################
             
             if 'Eyelink' in file:
@@ -557,30 +561,30 @@ def parse_files(task_files):
                     fs = int(1/np.median(np.diff(et_df.timestamps)))
                     #print('Eyelink Sampling Rate =', fs)
 
-                    # Adding eyelink timestamp #################################
-                    et_df['el_timestamps'] = fdata['time_series'][:,-1]
-                    # Computing correction between eyelink time and control time
-                    et_sampling_corr = et_df['el_timestamps'].apply(lambda x: x-et_df.el_timestamps[0]) - et_df['timestamps'].apply(lambda x: x-et_df.timestamps[0])
-                    ############################################################
+                    # # Adding eyelink timestamp #################################
+                    # et_df['el_timestamps'] = fdata['time_series'][:,-1]
+                    # # Computing correction between eyelink time and control time
+                    # et_sampling_corr = et_df['el_timestamps'].apply(lambda x: x-et_df.el_timestamps[0]) - et_df['timestamps'].apply(lambda x: x-et_df.timestamps[0])
+                    # ############################################################
 
                     dt_corr = int(float(mdata['time_series'][0][0].split('_')[-1]) - mdata['time_stamps'][0]) # datetime-correction factor : time correction offset for correcting LSL time to local time
                     # correcting Control subject corrected CTR timestamps to Patient subject's local time
                     if file.endswith('CONTROL'):
-                        dt_corr = int(ctrl_dt_corr - mdata['time_stamps'][0])
+                        dt_corr = ctrl_dt_corr
                     #####################################################################################
                     et_datetime = et_df.timestamps.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
 
-                    # correcting control timestamps with eyelink timestamp correction factor and coverting to present day datetime
-                    corr_timestamps = et_df['timestamps'] + et_sampling_corr
-                    trg_corr = np.mean(et_sampling_corr)
-                    el_datetime = np.array([datetime.fromtimestamp(dt_corr+i-trg_corr) for i in corr_timestamps])
-                    # target correction is subtracted because undersampling eyetracker leads to expanded time
-                    ##############################################################################################################
+                    # # correcting control timestamps with eyelink timestamp correction factor and coverting to present day datetime
+                    # corr_timestamps = et_df['timestamps'] + et_sampling_corr
+                    # trg_corr = np.mean(et_sampling_corr)
+                    # el_datetime = np.array([datetime.fromtimestamp(dt_corr+i-trg_corr) for i in corr_timestamps])
+                    # # target correction is subtracted because undersampling eyetracker leads to expanded time
+                    # ##############################################################################################################
 
                     trace1 = go.Scatter(
                                 x=et_datetime,
                                 y=et_df['R_gaze_x'],
-                                name='Right Eye Gaze X : fs = '+str(fs),
+                                name='Right Eye Gaze X : fs = '+str(fs) if not file.endswith('CONTROL') else 'CONTROL Right Eye Gaze X : fs = '+str(fs),
                                 mode='lines'
                             )
                     timeseries_data.append(trace1)
@@ -589,7 +593,7 @@ def parse_files(task_files):
                     trace2 = go.Scatter(
                                 x=et_datetime,
                                 y=et_df['R_gaze_y'],
-                                name='Right Eye Gaze Y',
+                                name='Right Eye Gaze Y' if not file.endswith('CONTROL') else 'CONTROL Right Eye Gaze Y',
                                 mode='lines'
                             )
                     timeseries_data.append(trace2)
@@ -598,7 +602,7 @@ def parse_files(task_files):
                     trace3 = go.Scatter(
                                 x=et_datetime,
                                 y=et_df['L_gaze_x'],
-                                name='Left Eye Gaze X',
+                                name='Left Eye Gaze X' if not file.endswith('CONTROL') else 'CONTROL Left Eye Gaze X',
                                 mode='lines',
                                 visible='legendonly',
                             )
@@ -608,50 +612,50 @@ def parse_files(task_files):
                     trace4 = go.Scatter(
                                 x=et_datetime,
                                 y=et_df['L_gaze_y'],
-                                name='Left Eye Gaze Y',
+                                name='Left Eye Gaze Y' if not file.endswith('CONTROL') else 'CONTROL Left Eye Gaze Y',
                                 mode='lines',
                                 visible='legendonly',
                             )
                     timeseries_data.append(trace4)
                     #print(trace4)
 
-                    ### Adding traces w.r.t eyelink times ###
-                    el_trace1 = go.Scatter(
-                                x=el_datetime,
-                                y=et_df['R_gaze_x'],
-                                name='R_gaze_x on Eyelink Time : Marker offset = '+str(np.abs(trg_corr*1000))[:3]+' ms',
-                                mode='lines',
-                                visible='legendonly',
-                            )
-                    timeseries_data.append(el_trace1)
+                    # ### Adding traces w.r.t eyelink times ###
+                    # el_trace1 = go.Scatter(
+                    #             x=el_datetime,
+                    #             y=et_df['R_gaze_x'],
+                    #             name='R_gaze_x on Eyelink Time : Marker offset = '+str(np.abs(trg_corr*1000))[:3]+' ms',
+                    #             mode='lines',
+                    #             visible='legendonly',
+                    #         )
+                    # timeseries_data.append(el_trace1)
 
-                    el_trace2 = go.Scatter(
-                                x=el_datetime,
-                                y=et_df['R_gaze_y'],
-                                name='Right Eye Gaze Y on Eyelink Time',
-                                mode='lines',
-                                visible='legendonly',
-                            )
-                    timeseries_data.append(el_trace2)
+                    # el_trace2 = go.Scatter(
+                    #             x=el_datetime,
+                    #             y=et_df['R_gaze_y'],
+                    #             name='Right Eye Gaze Y on Eyelink Time',
+                    #             mode='lines',
+                    #             visible='legendonly',
+                    #         )
+                    # timeseries_data.append(el_trace2)
 
-                    el_trace3 = go.Scatter(
-                                x=el_datetime,
-                                y=et_df['L_gaze_x'],
-                                name='Left Eye Gaze X on Eyelink Time',
-                                mode='lines',
-                                visible='legendonly',
-                            )
-                    timeseries_data.append(el_trace3)
+                    # el_trace3 = go.Scatter(
+                    #             x=el_datetime,
+                    #             y=et_df['L_gaze_x'],
+                    #             name='Left Eye Gaze X on Eyelink Time',
+                    #             mode='lines',
+                    #             visible='legendonly',
+                    #         )
+                    # timeseries_data.append(el_trace3)
 
-                    el_trace4 = go.Scatter(
-                                x=el_datetime,
-                                y=et_df['L_gaze_y'],
-                                name='Left Eye Gaze Y on Eyelink Time',
-                                mode='lines',
-                                visible='legendonly',
-                            )
-                    timeseries_data.append(el_trace4)
-                    #########################################
+                    # el_trace4 = go.Scatter(
+                    #             x=el_datetime,
+                    #             y=et_df['L_gaze_y'],
+                    #             name='Left Eye Gaze Y on Eyelink Time',
+                    #             mode='lines',
+                    #             visible='legendonly',
+                    #         )
+                    # timeseries_data.append(el_trace4)
+                    # #########################################
 
                     if 'MOT' not in file:
                         # Adding target trace - target trace is always extracted from eyelink marker data
@@ -682,7 +686,7 @@ def parse_files(task_files):
                         target_x_trace = go.Scatter(
                                     x=target_datetime,
                                     y=(target_pos_df['x_pos']),
-                                    name='Target X',
+                                    name='Target X' if not file.endswith('CONTROL') else 'CONTROL Target X',
                                     line={'shape': 'hv'},
                                     mode='lines',
                                     visible='legendonly',
@@ -692,7 +696,7 @@ def parse_files(task_files):
                         target_y_trace = go.Scatter(
                                     x=target_datetime,
                                     y=(target_pos_df['y_pos']),
-                                    name='Target Y',
+                                    name='Target Y' if not file.endswith('CONTROL') else 'CONTROL Target y',
                                     line={'shape': 'hv'},
                                     mode='lines',
                                     visible='legendonly',
@@ -1406,7 +1410,9 @@ def update_table(task_session_value):
         task_files = [fil for fil in task_files if tsv[2] in fil]
         if len(task_files) > 0:
             task_files = np.sort(list(set(task_files)))
-            task_files = np.append(task_files, get_rnd_ctrl_et_hdf5('_'.join(tsv[3:]))+'CONTROL')
+            for trg_task in ['pursuit', 'saccades_horizontal', 'saccades_vertical']:
+                if trg_task in task_str:
+                    task_files = np.append(task_files, get_rnd_ctrl_et_hdf5('_'.join(tsv[3:]))+'CONTROL')
         else:
             task_files.append('No file found')
     except:
