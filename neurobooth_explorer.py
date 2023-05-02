@@ -523,7 +523,8 @@ def parse_files(task_files):
 
                 for ctrl_file in task_files:
                     if ctrl_file.endswith('CONTROL'):
-                        ctrl_mdata = read_hdf5(op.join(file_loc, ctrl_file[:-7]))['marker']
+                        ctrl_file_loc = get_file_loc(ctrl_file.replace('CONTROL', ''))
+                        ctrl_mdata = read_hdf5(op.join(ctrl_file_loc, ctrl_file.replace('CONTROL', '')))['marker']
                         for ix, txt in enumerate(ctrl_mdata['time_series']):
                             if '!V TARGET_POS' in txt[0]:
                                 ctrl_trg_start = ctrl_mdata['time_stamps'][ix]
@@ -536,7 +537,7 @@ def parse_files(task_files):
             if 'Eyelink' in file:
                 try:
                     if file.endswith('CONTROL'):
-                        fname = glob.glob(op.join(file_loc, file[:-7]))[0]
+                        fname = glob.glob(op.join(file_loc, file.replace('CONTROL', '')))[0]
                     else:
                         fname = glob.glob(op.join(file_loc, file))[0]
                     complete_file = read_hdf5(fname)
