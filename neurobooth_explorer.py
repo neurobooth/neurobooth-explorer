@@ -4,6 +4,7 @@ import psycopg2
 from sshtunnel import SSHTunnelForwarder
 
 import dash_auth
+from flask import request
 import configparser
 
 import dash
@@ -301,11 +302,38 @@ for ix, diagnosis_list in enumerate(nb_data_df.primary_diagnosis):
 
 ctrl_df = nb_data_df.iloc[control_indices]
 ctrl_list = ctrl_df.subject_id.unique()
+# enter code here to filter out improper controls
 
 # --- Function to get random Control subject EyeTracker hdf5 file --- #
 def get_rnd_ctrl_et_hdf5(task):
     rnd_ctrl = random.choice(ctrl_list)
     return ctrl_df[(ctrl_df['subject_id']==rnd_ctrl) & (ctrl_df['tasks']==task) & (ctrl_df['device_id']=='Eyelink_1')].sample(n=1).hdf5_files.iloc[0]
+
+
+# --- Function to get fresh copy of nex_annotations table from db --- #
+def refresh_nex_annotations():
+    with SSHTunnelForwarder(**ssh_args) as tunnel:
+        with psycopg2.connect(port=tunnel.local_bind_port,
+                            host=tunnel.local_bind_host,
+                            **db_args) as conn:
+            nex_annotations_df = neurobooth_terra.Table('nex_annotations', conn).query()
+            nex_anno_cols = ['subject_id', 'session_datetime', 'task_id', 'annotation', 'annotator_name', 'annotation_source', 'annotation_submit_time']
+            nex_annotations_df = nex_annotations_df[nex_anno_cols]
+    return nex_annotations_df
+
+# Fetching nex_annotations at app launch
+nex_annotations_df = refresh_nex_annotations()
+
+
+# --- Function to insert annotation into nex_annotation table in db --- #
+def insert_into_annotation_table(cols, vals):
+    with SSHTunnelForwarder(**ssh_args) as tunnel:
+        with psycopg2.connect(port=tunnel.local_bind_port,
+                            host=tunnel.local_bind_host,
+                            **db_args) as conn:
+            nex_anno_table = neurobooth_terra.Table('nex_annotations', conn)
+            nex_anno_table.insert_rows(cols=cols, vals=vals, on_conflict='update')
+    return None
 
 
 # --- Function to extract all file list from dataframe --- #
@@ -324,6 +352,14 @@ def generate_empty_file_len_df():
     for col in ['Eyelink', 'Mouse', 'IMU', 'Audio']:
         len_df[col] = np.array([np.nan])
     return len_df
+
+
+# --- Function to generate empty annotation dataframe --- #
+def generate_empty_anno_df():
+    anno_df = pd.DataFrame()
+    for col in ['subject_id', 'session_datetime', 'task_id', 'annotation', 'annotator_name', 'annotation_source', 'annotation_submit_time']:
+        anno_df[col] = np.array([''])
+    return anno_df
 
 
 # --- Function to get file location based on odd/even subject_id --- #
@@ -1119,6 +1155,9 @@ face_landmark_y = face_landmark_points[::100,:,1]
 # --- Generating empty len_df --- #
 len_df = generate_empty_file_len_df()
 
+# --- Generating empty annotation_df --- #
+anno_df = generate_empty_anno_df()
+
 
 app = dash.Dash(__name__)
 auth = dash_auth.BasicAuth(app, USERNAME_PASSWORD_PAIRS)
@@ -1203,7 +1242,17 @@ app.layout = html.Div([
                                         ], className="nine columns", style={'width':'55%', 'display':'inline-block', 'padding-left':'3%', 'verticalAlign':'top'}),
                                 ]),
                         html.Hr(),
-                        html.H4('Meta Data', style={'textAlign':'center'}),
+                        html.H3('Explore Time Series', style={'textAlign':'center'}),
+                        html.Div([
+                                dcc.Markdown('''
+                                * Click legend to toggle trace visibility
+                                * Double click any legend to toggle all traces
+                                ''',style={'padding-left':'8%'}),
+                                dcc.Loading(id="loading-indicator", children=None, type="default", fullscreen=False),
+                                dcc.Graph(id="timeseries_graph")
+                                ]),
+                        html.Hr(),
+                        html.H3('Meta Data', style={'textAlign':'center'}),
                         html.Div([
                                 html.Div(dcc.Markdown(id="rc_notes_markdown", children=init_str), 
                                         style={'whiteSpace': 'pre-wrap',
@@ -1230,15 +1279,66 @@ app.layout = html.Div([
                                 )
                         ]),
                         html.Hr(),
-                        html.H3('Explore Time Series', style={'textAlign':'center'}),
-                        html.Div([
+                        html.H3('Annotations', style={'textAlign':'center'}),
+                        html.Div(
                                 dcc.Markdown('''
-                                * Click legend to toggle trace visibility
-                                * Double click any legend to toggle all traces
-                                ''',style={'padding-left':'8%'}),
-                                dcc.Loading(id="loading-indicator", children=None, type="default", fullscreen=False),
-                                dcc.Graph(id="timeseries_graph")
-                                ]),
+                                * Enter annotations in the text box and hit submit
+                                * The name of the person making the annotations is required for submitting to the database
+                                '''), style={'padding-left':'8%'},
+                                ),
+                        html.Div([
+                                html.Div([
+                                        html.Div(dcc.Markdown('Enter annotations below:'), style={'horizontalAlign':'left'}),
+                                        dcc.Textarea(
+                                            id='annotation-text-box',
+                                            value='',
+                                            style={'width': '100%', 'height': 100, 'horizontalAlign':'left', 'resize': 'none'},
+                                        ),
+                                        html.Div([
+                                                dcc.Markdown('Enter name of person annotating:',
+                                                             style={'horizontalAlign':'left', 'padding-right':'1%', 'display': 'inline-block'}),
+                                                dcc.Textarea(
+                                                    id='annotator-name-box',
+                                                    value='',
+                                                    style={'width': '50%', 'height': 20, 'resize': 'none', 'verticalAlign': 'middle', 'display': 'inline-block'},
+                                                    )
+                                                ]),
+                                        html.Div(html.Button('Submit to Database', id='annotation-submit-button', n_clicks=0), style={'padding-bottom':'2%'}),
+                                        html.Div(id='successful-submission-text-area', style={'whiteSpace': 'pre-line'})
+                                        ], style={'whiteSpace': 'pre-wrap',
+                                                'outline':'1px black solid',
+                                                'outline-offset': '-2px',
+                                                'width':'46%',
+                                                'display':'inline-block',
+                                                'horizontalAlign':'left',
+                                                'padding-left':'2%',
+                                                'padding-right':'2%',
+                                            }
+                                ),
+                                html.Div(
+                                        dash_table.DataTable(
+                                            id='annotation_datatable',
+                                            data=anno_df.to_dict('records'),
+                                            columns=[{'name': col, 'id': col} for col in anno_df.columns],
+                                            style_cell={'overflow': 'hidden', 'textOverflow': 'ellipsis', 'maxWidth': 0},
+                                            tooltip_data=[
+                                                {
+                                                    column: {'value': str(value), 'type': 'markdown'}
+                                                    for column, value in row.items()
+                                                }
+                                                for row in anno_df.to_dict('records')
+                                            ],
+                                            tooltip_duration=None,
+                                            # style_table={'maxHeight': '300px', 'overflowY': 'scroll', 'overflowX': 'scroll'},
+                                            # style_data={'whiteSpace': 'normal', 'height': 'auto'},
+                                        ), style={'width':'46%',
+                                                    'display':'inline-block',
+                                                    'verticalAlign':'top',
+                                                    'horizontalAlign':'right',
+                                                    'padding-left':'2%',
+                                                    'padding-right':'2%'}
+                                )
+                        ]),
                         html.Hr(),
                         html.H3('Explore Audio and Facial Landmarks', style={'textAlign':'center'}),
                         html.Div([
@@ -1410,7 +1510,7 @@ def update_table(task_session_value):
         task_files = [fil for fil in task_files if tsv[2] in fil]
         if len(task_files) > 0:
             task_files = np.sort(list(set(task_files)))
-            for trg_task in ['pursuit', 'saccades_horizontal', 'saccades_vertical']:
+            for trg_task in ['pursuit', 'saccades_horizontal', 'saccades_vertical', 'gaze_holding']:
                 if trg_task in task_str:
                     task_files = np.append(task_files, get_rnd_ctrl_et_hdf5('_'.join(tsv[3:]))+'CONTROL')
         else:
@@ -1573,6 +1673,83 @@ def on_button_click(n_clicks_timestamp):
     #dt_str = datetime.fromtimestamp(int(n_clicks_timestamp/1000)).strftime('%Y-%m-%d, %H:%M:%S')
     dt_str = datetime.now().strftime('%Y-%m-%d, %H:%M:%S')
     return 'New data was last retrieved at ' + dt_str, updated_sub_id_list_options, updated_session_date_list_options, updated_task_list_options, updated_clinical_list_options
+
+
+@app.callback(
+    Output('annotation_datatable', 'data'),
+    Input("task_session_dropdown", "value")
+)
+def update_annotation_table(task_session_value):
+    if (task_session_value is not None) and (task_session_value != 'Select task to view data'):
+        tsv = task_session_value.split('_')
+        subj_id = tsv[0]
+        anno_data = nex_annotations_df[nex_annotations_df['subject_id']==subj_id].to_dict('records')
+    else:
+        anno_df = generate_empty_anno_df()
+        anno_data = anno_df.to_dict('records')
+    return anno_data
+
+
+@app.callback(
+    [Output('successful-submission-text-area', 'children'),
+    Output('annotation-text-box', 'value'),
+    Output('annotator-name-box', 'value'),
+    Output('annotation_datatable', 'data')],
+    Input('annotation-submit-button', 'n_clicks'),
+    [State("task_session_dropdown", "value"),
+    State('annotation-text-box', 'value'),
+    State('annotator-name-box', 'value'),
+    State('annotation_datatable', 'data')]
+)
+def submit_to_database(n_clicks, task_session_value, annotation_text, annotator_name, anno_data):
+    placeholder_text = ''
+    placeholder_name = ''
+    
+    annotation_text = annotation_text.strip()
+    annotator_name = annotator_name.strip().lower()
+
+    if n_clicks > 0 and task_session_value=='Select task to view data':
+        return [f'Invalid task session value received: "{task_session_value}"\nSelect a task before making annotation!', placeholder_text, placeholder_name, anno_data]
+
+    if n_clicks > 0 and (len(annotator_name)==0 or len(annotation_text)==0):
+        return [f'Annotation text and annotator name cannot be empty fields!', placeholder_text, placeholder_name, anno_data]
+    
+    if n_clicks > 0:
+        try:
+            tsv = task_session_value.split('_')
+        except:
+            return f'could not split task session value: "{task_session_value}"', placeholder_text, placeholder_name, anno_data
+        subj_id = tsv[0]
+        session_date = tsv[1]
+        session_time = tsv[2]
+        session_datetime = datetime.strptime(session_date+' '+session_time, '%Y-%m-%d %Hh-%Mm-%Ss') #'2022-04-28 15h-19m-59s'
+        task_id = '_'.join(tsv[3:])
+        scols = ['subject_id', 'gender', 'age', 'primary_diagnosis']
+        data_df = nb_data_df[nb_data_df['subject_id']==subj_id].astype('str').groupby(['session_date']).agg(lambda x: ' '.join(x.unique()))
+        data_df.reset_index(inplace=True)
+        data_df = data_df[scols]
+        gender = data_df['gender'].iloc[0]
+        age = int(data_df['age'].iloc[0])
+        prim_diagnosis = data_df['primary_diagnosis'].iloc[0].replace('[','{').replace(']','}')
+        source = 'neurobooth_explorer'
+        username = request.authorization['username']
+        submit_time_str = datetime.now().strftime('%Y-%m-%d, %H:%M:%S')
+        submit_time = datetime.strptime(submit_time_str, '%Y-%m-%d, %H:%M:%S')
+        
+        cols = ['subject_id', 'session_datetime', 'gender', 'age', 'primary_diagnosis', 'task_id',
+                'annotation', 'annotator_name', 'annotation_source', 'source_user_id', 'annotation_submit_time']
+        vals = [(subj_id, session_datetime, gender, age, prim_diagnosis, task_id,
+                annotation_text, annotator_name, source, username, submit_time)]
+        _ = insert_into_annotation_table(cols, vals)
+
+        global nex_annotations_df
+        nex_annotations_df = refresh_nex_annotations()
+        anno_data = nex_annotations_df[nex_annotations_df['subject_id']==subj_id].to_dict('records')
+
+        return [f'Successfully added annotation to database table!', placeholder_text, placeholder_name, anno_data]
+
+    # default return
+    return [None, placeholder_text, placeholder_name, anno_data]
 
 
 if __name__ == '__main__':
