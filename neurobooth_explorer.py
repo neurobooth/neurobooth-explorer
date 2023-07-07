@@ -499,7 +499,7 @@ def get_DSC_button_presses(dsc_filename, fig):
                         layer="below"
             )
 
-        fig.add_trace(go.Scattergl(
+        fig.add_trace(go.Scatter(
             x=[datetime.fromtimestamp(new_symbol_local_ts[0]), datetime.fromtimestamp(button_press_local_ts[0]), datetime.fromtimestamp(button_release_local_ts[0])],
             y=[-10,-30,-60],
             text=['New Symbol', 'Button Press', 'Button Release'],
@@ -519,7 +519,7 @@ def parse_files(task_files):
     len_df = generate_empty_file_len_df()
 
     if len(task_files)==0 or len(task_files)==1:
-        ts_rand_trace = go.Scattergl(
+        ts_rand_trace = go.Scatter(
             x=np.arange(10),
             y=np.random.randint(0,5,size=(10)),
             name='Random Data',
@@ -528,13 +528,13 @@ def parse_files(task_files):
         timeseries_data.append(ts_rand_trace)
 
         random_y = np.random.randint(0,5,size=(10))
-        audio_rand_trace = go.Scattergl(
+        audio_rand_trace = go.Scatter(
             x=np.arange(10),
             y=random_y,
             name='Random Data',
             mode='lines'
             )
-        vert_trace = go.Scattergl(
+        vert_trace = go.Scatter(
             x=[0]*10,
             y=random_y,
             name='x position',
@@ -617,27 +617,27 @@ def parse_files(task_files):
                     # # target correction is subtracted because undersampling eyetracker leads to expanded time
                     # ##############################################################################################################
 
-                    trace1 = go.Scattergl(
-                                x=et_datetime,
-                                y=et_df['R_gaze_x'],
+                    trace1 = go.Scatter(
+                                x=et_datetime[::4],
+                                y=et_df['R_gaze_x'][::4],
                                 name='Right Eye Gaze X : fs = '+str(fs) if not file.endswith('CONTROL') else 'CONTROL Right Eye Gaze X : fs = '+str(fs),
                                 mode='lines'
                             )
                     timeseries_data.append(trace1)
                     #print(trace1)
 
-                    trace2 = go.Scattergl(
-                                x=et_datetime,
-                                y=et_df['R_gaze_y'],
+                    trace2 = go.Scatter(
+                                x=et_datetime[::4],
+                                y=et_df['R_gaze_y'][::4],
                                 name='Right Eye Gaze Y' if not file.endswith('CONTROL') else 'CONTROL Right Eye Gaze Y',
                                 mode='lines'
                             )
                     timeseries_data.append(trace2)
                     #print(trace2)
 
-                    trace3 = go.Scattergl(
-                                x=et_datetime,
-                                y=et_df['L_gaze_x'],
+                    trace3 = go.Scatter(
+                                x=et_datetime[::4],
+                                y=et_df['L_gaze_x'][::4],
                                 name='Left Eye Gaze X' if not file.endswith('CONTROL') else 'CONTROL Left Eye Gaze X',
                                 mode='lines',
                                 visible='legendonly',
@@ -645,9 +645,9 @@ def parse_files(task_files):
                     timeseries_data.append(trace3)
                     #print(trace3)
 
-                    trace4 = go.Scattergl(
-                                x=et_datetime,
-                                y=et_df['L_gaze_y'],
+                    trace4 = go.Scatter(
+                                x=et_datetime[::4],
+                                y=et_df['L_gaze_y'][::4],
                                 name='Left Eye Gaze Y' if not file.endswith('CONTROL') else 'CONTROL Left Eye Gaze Y',
                                 mode='lines',
                                 visible='legendonly',
@@ -656,7 +656,7 @@ def parse_files(task_files):
                     #print(trace4)
 
                     # ### Adding traces w.r.t eyelink times ###
-                    # el_trace1 = go.Scattergl(
+                    # el_trace1 = go.Scatter(
                     #             x=el_datetime,
                     #             y=et_df['R_gaze_x'],
                     #             name='R_gaze_x on Eyelink Time : Marker offset = '+str(np.abs(trg_corr*1000))[:3]+' ms',
@@ -665,7 +665,7 @@ def parse_files(task_files):
                     #         )
                     # timeseries_data.append(el_trace1)
 
-                    # el_trace2 = go.Scattergl(
+                    # el_trace2 = go.Scatter(
                     #             x=el_datetime,
                     #             y=et_df['R_gaze_y'],
                     #             name='Right Eye Gaze Y on Eyelink Time',
@@ -674,7 +674,7 @@ def parse_files(task_files):
                     #         )
                     # timeseries_data.append(el_trace2)
 
-                    # el_trace3 = go.Scattergl(
+                    # el_trace3 = go.Scatter(
                     #             x=el_datetime,
                     #             y=et_df['L_gaze_x'],
                     #             name='Left Eye Gaze X on Eyelink Time',
@@ -683,7 +683,7 @@ def parse_files(task_files):
                     #         )
                     # timeseries_data.append(el_trace3)
 
-                    # el_trace4 = go.Scattergl(
+                    # el_trace4 = go.Scatter(
                     #             x=el_datetime,
                     #             y=et_df['L_gaze_y'],
                     #             name='Left Eye Gaze Y on Eyelink Time',
@@ -719,7 +719,7 @@ def parse_files(task_files):
                         # el_target_datetime = target_pos_df.ctrl_ts.apply(lambda x: datetime.fromtimestamp(dt_corr+x+trg_corr))
                         # #########################
 
-                        target_x_trace = go.Scattergl(
+                        target_x_trace = go.Scatter(
                                     x=target_datetime,
                                     y=(target_pos_df['x_pos']),
                                     name='Target X' if not file.endswith('CONTROL') else 'CONTROL Target X',
@@ -729,7 +729,7 @@ def parse_files(task_files):
                                 )
                         timeseries_data.append(target_x_trace)
 
-                        target_y_trace = go.Scattergl(
+                        target_y_trace = go.Scatter(
                                     x=target_datetime,
                                     y=(target_pos_df['y_pos']),
                                     name='Target Y' if not file.endswith('CONTROL') else 'CONTROL Target y',
@@ -740,7 +740,7 @@ def parse_files(task_files):
                         timeseries_data.append(target_y_trace)
 
                         # ### Adding target traces on eyelink times ###
-                        # el_target_x_trace = go.Scattergl(
+                        # el_target_x_trace = go.Scatter(
                         #             x=el_target_datetime,
                         #             y=(target_pos_df['x_pos']),
                         #             name='Target X on Eyelink Time',
@@ -750,7 +750,7 @@ def parse_files(task_files):
                         #         )
                         # timeseries_data.append(el_target_x_trace)
 
-                        # el_target_y_trace = go.Scattergl(
+                        # el_target_y_trace = go.Scatter(
                         #             x=el_target_datetime,
                         #             y=(target_pos_df['y_pos']),
                         #             name='Target Y on Eyelink Time',
@@ -795,7 +795,7 @@ def parse_files(task_files):
                                     target_dict['target_9'].append([target_dt[ix], int(txt_split[3][:-1]), int(txt_split[4])])
 
                         for ky in target_dict.keys():
-                            timeseries_data.append(go.Scattergl(
+                            timeseries_data.append(go.Scatter(
                                 x=np.array(target_dict[ky])[:,0],
                                 y=np.array(target_dict[ky])[:,1],
                                 name=ky+' x',
@@ -805,7 +805,7 @@ def parse_files(task_files):
                                 visible='legendonly',
                                 )
                             )
-                            timeseries_data.append(go.Scattergl(
+                            timeseries_data.append(go.Scatter(
                                 x=np.array(target_dict[ky])[:,0],
                                 y=np.array(target_dict[ky])[:,2],
                                 name=ky+' y',
@@ -818,7 +818,7 @@ def parse_files(task_files):
 
                     #print(timeseries_data)
                 except:
-                    eye_rand_trace = go.Scattergl(
+                    eye_rand_trace = go.Scatter(
                                         x=np.array([datetime.fromtimestamp(i) for i in np.arange(10)]),
                                         y=[0]*10,
                                         name='Eye Trace file not found or parsed',
@@ -844,16 +844,16 @@ def parse_files(task_files):
                     mouse_datetime = np.array(mouse_df.timestamps.apply(lambda x: datetime.fromtimestamp(dt_corr+x)))
                     # mouse_datetime = np.array([datetime.fromtimestamp(dt_corr + timestamp) for timestamp in mouse_df.timestamps])
 
-                    trace5 = go.Scattergl(
-                                x=mouse_datetime[::10],
-                                y=mouse_df['mouse_x'][::10],
+                    trace5 = go.Scatter(
+                                x=mouse_datetime[::20],
+                                y=mouse_df['mouse_x'][::20],
                                 name='Mouse X : fs = '+str(fs),
                                 mode='lines',
                                 visible='legendonly'
                             )
                     timeseries_data.append(trace5)
 
-                    trace6 = go.Scattergl(
+                    trace6 = go.Scatter(
                                 x=mouse_datetime[::10],
                                 y=mouse_df['mouse_y'][::10],
                                 name='Mouse Y',
@@ -877,7 +877,7 @@ def parse_files(task_files):
                         cursor_in_target_index_in_mouse.append(np.argmin(abs(fdata['time_stamps'] - marker_timestamp)))
                     #print(cursor_in_target_index_in_mouse[0:2])
 
-                    cursor_in_target_x_trace = go.Scattergl(
+                    cursor_in_target_x_trace = go.Scatter(
                                 x=mouse_datetime[cursor_in_target_index_in_mouse],
                                 y=mouse_df.mouse_x[cursor_in_target_index_in_mouse],
                                 name='Cursor in Target X',
@@ -885,7 +885,7 @@ def parse_files(task_files):
                             )
                     timeseries_data.append(cursor_in_target_x_trace)
 
-                    cursor_in_target_y_trace = go.Scattergl(
+                    cursor_in_target_y_trace = go.Scatter(
                                 x=mouse_datetime[cursor_in_target_index_in_mouse],
                                 y=mouse_df.mouse_y[cursor_in_target_index_in_mouse],
                                 name='Cursor in Target Y',
@@ -894,7 +894,7 @@ def parse_files(task_files):
                     timeseries_data.append(cursor_in_target_y_trace)
 
 
-                    valid_click_x_trace = go.Scattergl(
+                    valid_click_x_trace = go.Scatter(
                                 x=mouse_datetime[valid_click_index_in_mouse],
                                 y=mouse_df.mouse_x[valid_click_index_in_mouse],
                                 name='Valid Clicks X',
@@ -902,7 +902,7 @@ def parse_files(task_files):
                             )
                     timeseries_data.append(valid_click_x_trace)
 
-                    valid_click_y_trace = go.Scattergl(
+                    valid_click_y_trace = go.Scatter(
                                 x=mouse_datetime[valid_click_index_in_mouse],
                                 y=mouse_df.mouse_y[valid_click_index_in_mouse],
                                 name='Valid Clicks Y',
@@ -910,7 +910,7 @@ def parse_files(task_files):
                             )
                     timeseries_data.append(valid_click_y_trace)
                 except:
-                    mouse_rand_trace = go.Scattergl(
+                    mouse_rand_trace = go.Scatter(
                                         x=np.array([datetime.fromtimestamp(i) for i in np.arange(10)]),
                                         y=[0.5]*10,
                                         name='Mouse Trace file not found or parsed',
@@ -953,11 +953,11 @@ def parse_files(task_files):
                     fs = int(1/np.median(np.diff(audio_df.timestamps)))
                     #print('Audio Sampling Rate =', fs)
 
-                    audio_df = audio_df.iloc[::20,:]
+                    audio_df = audio_df.iloc[::100,:]
 
                     audio_datetime = audio_df.timestamps.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
 
-                    trace7 = go.Scattergl(
+                    trace7 = go.Scatter(
                                 x=audio_datetime,
                                 y=audio_df['amplitude'],
                                 name='Audio Trace : fs = '+str(fs),
@@ -982,7 +982,7 @@ def parse_files(task_files):
                     #             )
                     #print(specgram_trace)
 
-                    audio_trace = go.Scattergl(
+                    audio_trace = go.Scatter(
                                 x= audio_df.timestamps.apply(lambda x: x-audio_df.timestamps[0]), #audio_datetime,
                                 y=audio_df['amplitude'],
                                 name='Audio Trace',
@@ -990,7 +990,7 @@ def parse_files(task_files):
                             )
                     specgram_data.append(audio_trace)
 
-                    vert_trace = go.Scattergl(
+                    vert_trace = go.Scatter(
                                 x=[0]*len(audio_df['timestamps']),
                                 y=audio_df['amplitude'],
                                 name='Frame',
@@ -999,7 +999,7 @@ def parse_files(task_files):
                     specgram_data.append(vert_trace)
 
                 except:
-                    mic_ts_rand_trace = go.Scattergl(
+                    mic_ts_rand_trace = go.Scatter(
                                         x=np.array([datetime.fromtimestamp(i) for i in np.arange(10)]),
                                         y=[1]*10,
                                         name='Mic trace file not found or parsed',
@@ -1008,13 +1008,13 @@ def parse_files(task_files):
                     timeseries_data.append(mic_ts_rand_trace)
 
                     random_y = np.random.randint(0,5,size=(10))
-                    mic_audio_rand_trace = go.Scattergl(
+                    mic_audio_rand_trace = go.Scatter(
                                         x=np.arange(10),
                                         y=random_y,
                                         name='Random Data',
                                         mode='lines'
                                         )
-                    vert_trace = go.Scattergl(
+                    vert_trace = go.Scatter(
                         x=[0]*10,
                         y=random_y,
                         name='x position',
@@ -1040,7 +1040,7 @@ def parse_files(task_files):
                     dt_corr = int(float(mdata['time_series'][0][0].split('_')[-1]) - mdata['time_stamps'][0]) # datetime-correction factor : time correction offset for correcting LSL time to local time
                     imu_datetime = imu_df.timestamps.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
 
-                    trace8 = go.Scattergl(
+                    trace8 = go.Scatter(
                                 x=imu_datetime,
                                 y=imu_df['acc_x'],
                                 name='Acceleration X : fs = '+str(fs),
@@ -1050,7 +1050,7 @@ def parse_files(task_files):
                             )
                     timeseries_data.append(trace8)
 
-                    trace9 = go.Scattergl(
+                    trace9 = go.Scatter(
                                 x=imu_datetime,
                                 y=imu_df['acc_y'],
                                 name='Acceleration Y',
@@ -1060,7 +1060,7 @@ def parse_files(task_files):
                             )
                     timeseries_data.append(trace9)
 
-                    trace10 = go.Scattergl(
+                    trace10 = go.Scatter(
                                 x=imu_datetime,
                                 y=imu_df['acc_z'],
                                 name='Acceleration Z',
@@ -1070,7 +1070,7 @@ def parse_files(task_files):
                             )
                     timeseries_data.append(trace10)
 
-                    trace11 = go.Scattergl(
+                    trace11 = go.Scatter(
                                 x=imu_datetime,
                                 y=imu_df['gyr_x'],
                                 name='Gyroscope X',
@@ -1080,7 +1080,7 @@ def parse_files(task_files):
                             )
                     timeseries_data.append(trace11)
 
-                    trace12 = go.Scattergl(
+                    trace12 = go.Scatter(
                                 x=imu_datetime,
                                 y=imu_df['gyr_y'],
                                 name='Gyroscope Y',
@@ -1090,7 +1090,7 @@ def parse_files(task_files):
                             )
                     timeseries_data.append(trace12)
 
-                    trace13 = go.Scattergl(
+                    trace13 = go.Scatter(
                                 x=imu_datetime,
                                 y=imu_df['gyr_z'],
                                 name='Gyroscope Z',
@@ -1100,7 +1100,7 @@ def parse_files(task_files):
                             )
                     timeseries_data.append(trace13)
                 except:
-                    imu_rand_trace = go.Scattergl(
+                    imu_rand_trace = go.Scatter(
                                         x=np.array([datetime.fromtimestamp(i) for i in np.arange(10)]),
                                         y=[1.5]*10,
                                         name='IMU Trace file not found or parsed',
@@ -1610,7 +1610,7 @@ def update_face_landmark_frame(selected_frame, specgram_fig):
 
     face_frame_fig = go.Figure()
     face_frame_fig.add_trace(
-                    go.Scattergl(
+                    go.Scatter(
                             x=face_landmark_x[int(selected_frame)],
                             y=face_landmark_y[int(selected_frame)],
                             mode='markers',
