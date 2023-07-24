@@ -120,8 +120,14 @@ from scipy import signal
 # --- ssh, db cred, variable assignment for Ubuntu on P620 Workstation --- #
 
 ### setting data file locations for DrWho ###
-file_loc_odd = '/space/neo/3/neurobooth/data'
-file_loc_even = '/local_mount/space/drwho/3/neurobooth/data'
+file_locs = [
+    "/space/drwho/3/neurobooth/data/",
+    "/space/neo/3/neurobooth/data/",
+    "/space/drwho/4/neurobooth/data/",
+    "/space/neo/5/neurobooth/data/"
+]
+# file_loc_odd = '/space/neo/3/neurobooth/data'
+# file_loc_even = '/local_mount/space/drwho/3/neurobooth/data'
 face_landmark_filename = '/local_mount/space/drwho/3/neurobooth/applications/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
 auth_config_file_loc = '/homes/5/sp1022/.db_secrets/users.txt'
 db_config_file_loc = '/homes/5/sp1022/.db_secrets/db_secrets.txt'
@@ -365,12 +371,16 @@ def generate_empty_anno_df():
 # --- Function to get file location based on odd/even subject_id --- #
 def get_file_loc(filename):
     odd_even_session, _ = op.split(filename)
-    odd_even_subject_id = int(odd_even_session.split('_')[0])
-    if odd_even_subject_id % 2: #odd
-        file_loc = file_loc_odd
-    else: #even
-        file_loc = file_loc_even
-    return file_loc
+    for loc in file_locs:
+        if op.exists(op.join(odd_even_session, loc)):
+            return loc
+    return None
+    # odd_even_subject_id = int(odd_even_session.split('_')[0])
+    # if odd_even_subject_id % 2: #odd
+    #     file_loc = file_loc_odd
+    # else: #even
+    #     file_loc = file_loc_even
+    # return file_loc
 
 # --- Function to extract task session file list from datafarme --- #
 def get_task_session_files(fdf):
