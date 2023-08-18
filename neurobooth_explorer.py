@@ -372,7 +372,7 @@ def generate_empty_anno_df():
 def get_file_loc(filename):
     odd_even_session, _ = op.split(filename)
     for loc in file_locs:
-        if op.exists(op.join(odd_even_session, loc)):
+        if op.exists(op.join(loc, odd_even_session)):
             return loc
     return None
     # odd_even_subject_id = int(odd_even_session.split('_')[0])
@@ -1257,9 +1257,14 @@ app.layout = html.Div([
                                 dcc.Markdown('''
                                 * Click legend to toggle trace visibility
                                 * Double click any legend to toggle all traces
+                                * Selecting any of the Edit Plot radio buttons will re-render the plot automatically
                                 ''',style={'padding-left':'8%'}),
                                 dcc.Loading(id="loading-indicator", children=None, type="default", fullscreen=False),
-                                dcc.Graph(id="timeseries_graph")
+                                dcc.RadioItems(id='edit-plot-radio',
+                                                options=[{'label': 'Edit Plot', 'value': 'True'},
+                                                        {'label': 'Non-editable Plot', 'value': 'False'},],
+                                                value='False'),
+                                dcc.Graph(id="timeseries_graph", config={'toImageButtonOptions': {'width': None,'height': None, 'format':'svg'}}),
                                 ]),
                         html.Hr(),
                         html.H3('Meta Data', style={'textAlign':'center'}),
@@ -1496,12 +1501,19 @@ def update_table(subid_value, date_value, task_value, clinical_value):
     [Output(component_id='task_session_file_datatable', component_property='data'),
     Output(component_id='task_session_file_datatable', component_property='columns'),
     Output('timeseries_graph', 'figure'),
+    Output('timeseries_graph', 'config'),
     Output('specgram_graph', 'figure'),
     Output("loading-indicator","children"),
     Output("file_length_datatable", "data"),
     Output("rc_notes_markdown", "children")],
-    Input("task_session_dropdown", "value"))
-def update_table(task_session_value):
+    [Input("task_session_dropdown", "value"),
+    Input('edit-plot-radio', 'value')])
+def update_table(task_session_value, edit_plot_str):
+    if edit_plot_str=='False':
+        edit_plot = False
+    elif edit_plot_str=='True':
+        edit_plot = True
+    
     if task_session_value=='Select task to view data':
         task_session_value=None
     
@@ -1513,7 +1525,13 @@ def update_table(task_session_value):
             task_str = '_'.join(tsv[3:-2])
         else:
             task_str = '_'.join(tsv[3:-1])
+        
         plot_title = tsv[0]+'_'+tsv[1]+'_'+task_str+' : Accelerometer, Gyroscope, Eye Tracker and Mouse Time Series'
+        
+        svg_prim_diag = ','.join(nb_data_df[nb_data_df['subject_id']==tsv[0]].primary_diagnosis.iloc[0])
+        svg_prim_diag = svg_prim_diag.replace(' ','_')
+        svg_filename = tsv[0]+'_'+tsv[1]+'_'+tsv[2]+'_'+task_str+'_'+svg_prim_diag
+        
         # get hdf5 files which match subject_id, session_date, and task name
         task_files = nb_data_df[(nb_data_df['subject_id']==tsv[0]) & (nb_data_df['session_date']==datetime.strptime(tsv[1], "%Y-%m-%d").date()) & (nb_data_df['tasks']=='_'.join(tsv[3:]))].hdf5_files.tolist()
         # then filter for task time because same task can be performed multiple times 
@@ -1527,8 +1545,11 @@ def update_table(task_session_value):
             task_files.append('No file found')
     except:
         plot_title = 'Accelerometer, Gyroscope, Eye Tracker and Mouse Time Series'
+        svg_filename = plot_title
         task_files.append('No file found')
     task_file_df = pd.DataFrame(task_files, columns=['task_files'])
+    
+    ts_config = {'editable':edit_plot, 'toImageButtonOptions': {'width': None,'height': None, 'format':'svg', 'filename':svg_filename}}
     
     data = task_file_df.to_dict('records')
     columns = [{'name': col, 'id': col} for col in task_file_df.columns]
@@ -1607,7 +1628,7 @@ def update_table(task_session_value):
     specgram_fig = go.Figure(data=specgram_data, layout=specgram_layout)
     specgram_fig.update_layout(legend_x=1, legend_y=1)
 
-    return data, columns, timeseries_fig, specgram_fig, None, length_data, rc_notes_markdown
+    return data, columns, timeseries_fig, ts_config, specgram_fig, None, length_data, rc_notes_markdown
 
 
 @app.callback(
