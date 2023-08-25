@@ -1357,6 +1357,10 @@ app.layout = html.Div([
                                 * The name of the person making the annotations is required for submitting to the database
                                 '''), style={'padding-left':'8%'},
                                 ),
+                        dcc.RadioItems(id='annotate-control-radio',
+                                        options=[{'label': 'Annotate Patient', 'value': 'patient'},
+                                                {'label': 'Annotate Control', 'value': 'control', 'disabled':True},],
+                                                value='patient'),
                         html.Div([
                                 html.Div([
                                         html.Div(dcc.Markdown('Enter annotations below:'), style={'horizontalAlign':'left'}),
@@ -1782,22 +1786,47 @@ def update_annotation_table(task_session_value):
 
 
 @app.callback(
+    [Output('annotate-control-radio', 'options'),
+    Output('annotate-control-radio', 'value')],
+    Input('task_session_file_datatable', 'data'),
+)
+def manage_annotate_control_radio_buttons(tsv_data):
+    disable_custom_anno = True
+    if tsv_data is not None:
+        for dicts in tsv_data:
+            if dicts['task_files'].endswith('CONTROL'):
+                disable_custom_anno = False
+
+    anno_radio_options=[{'label': 'Annotate Patient', 'value': 'patient'},
+                        {'label': 'Annotate Control', 'value': 'control', 'disabled':disable_custom_anno}]
+    anno_radio_value = 'patient'
+    return [anno_radio_options, anno_radio_value]
+
+
+@app.callback(
     [Output('successful-submission-text-area', 'children'),
     Output('annotation-text-box', 'value'),
     Output('annotator-name-box', 'value'),
     Output('annotation_datatable', 'data')],
     Input('annotation-submit-button', 'n_clicks'),
-    [State("task_session_dropdown", "value"),
+    [State('annotate-control-radio', 'value'),
+    State("task_session_dropdown", "value"),
     State('annotation-text-box', 'value'),
     State('annotator-name-box', 'value'),
-    State('annotation_datatable', 'data')]
+    State('annotation_datatable', 'data'),
+    State('task_session_file_datatable', 'data')]
 )
-def submit_to_database(n_clicks, task_session_value, annotation_text, annotator_name, anno_data):
+def submit_to_database(n_clicks, annotate_control_str, task_session_value, annotation_text, annotator_name, anno_data, tsv_data):
     placeholder_text = ''
     placeholder_name = ''
     
     annotation_text = annotation_text.strip()
     annotator_name = annotator_name.strip().lower()
+
+    if annotate_control_str=='patient':
+        annotate_control = False
+    elif annotate_control_str=='control':
+        annotate_control = True
 
     if n_clicks > 0 and task_session_value=='Select task to view data':
         return [f'Invalid task session value received: "{task_session_value}"\nSelect a task before making annotation!', placeholder_text, placeholder_name, anno_data]
@@ -1808,8 +1837,14 @@ def submit_to_database(n_clicks, task_session_value, annotation_text, annotator_
     if n_clicks > 0:
         try:
             tsv = task_session_value.split('_')
+            if annotate_control:
+                for dicts in tsv_data:
+                    if dicts['task_files'].endswith('CONTROL'):
+                        head, tail = op.split(dicts['task_files'])
+                        ctrl_task_session_value = tail.split('_R001')[0]
+                        tsv = ctrl_task_session_value.split('_')
         except:
-            return f'could not split task session value: "{task_session_value}"', placeholder_text, placeholder_name, anno_data
+            return [f'could not split task session value: "{task_session_value}"', placeholder_text, placeholder_name, anno_data]
         subj_id = tsv[0]
         session_date = tsv[1]
         session_time = tsv[2]
