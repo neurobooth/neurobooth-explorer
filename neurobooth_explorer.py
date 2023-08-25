@@ -316,6 +316,27 @@ def get_rnd_ctrl_et_hdf5(task):
     return ctrl_df[(ctrl_df['subject_id']==rnd_ctrl) & (ctrl_df['tasks']==task) & (ctrl_df['device_id']=='Eyelink_1')].sample(n=1).hdf5_files.iloc[0]
 
 
+# --- Function to check for other sessions for a subject --- #
+def check_for_other_sessions(subj_id, current_session_date, task):
+    
+    other_sessions_exist = False
+    other_session_file_list = []
+    
+    if subj_id == '100001': # Test id with many many sessions
+        return other_sessions_exist, other_session_file_list
+    
+    if len(nb_data_df[nb_data_df['subject_id']==subj_id].session_date.unique()) > 1:
+        other_sessions_exist = True
+    
+    if other_sessions_exist:
+        all_sessions_file_list = nb_data_df[(nb_data_df['subject_id']==subj_id) & (nb_data_df['tasks']==task) & (nb_data_df['device_id']=='Eyelink_1')].hdf5_files.unique()
+        for session_file in all_sessions_file_list:
+            if current_session_date not in session_file:
+                other_session_file_list.append(session_file+'OTHERSESSION')
+    
+    return other_sessions_exist, other_session_file_list
+
+
 # --- Function to get fresh copy of nex_annotations table from db --- #
 def refresh_nex_annotations():
     with SSHTunnelForwarder(**ssh_args) as tunnel:
@@ -564,7 +585,8 @@ def parse_files(task_files):
             if 'Eyelink' in file and file.endswith('.hdf5'):
                 et_trg_start=0
                 ctrl_trg_start=0
-                
+                otr_sess_trg_start=0
+
                 et_data = read_hdf5(op.join(file_loc, file))
                 ctrl_dt_corr = int(float(et_data['marker']['time_series'][0][0].split('_')[-1]) - et_data['marker']['time_stamps'][0])
                 for ix, txt in enumerate(et_data['marker']['time_series']):
@@ -580,24 +602,39 @@ def parse_files(task_files):
                             if '!V TARGET_POS' in txt[0]:
                                 ctrl_trg_start = ctrl_data['marker']['time_stamps'][ix]
                                 break
-                
+
+                for otr_sess_file in task_files:
+                    if otr_sess_file.endswith('OTHERSESSION'):
+                        otr_sess_file_loc = get_file_loc(otr_sess_file.replace('OTHERSESSION', ''))
+                        otr_sess_data = read_hdf5(op.join(otr_sess_file_loc, otr_sess_file.replace('OTHERSESSION', '')))
+                        for ix, txt in enumerate(otr_sess_data['marker']['time_series']):
+                            if '!V TARGET_POS' in txt[0]:
+                                otr_sess_trg_start = otr_sess_data['marker']['time_stamps'][ix]
+                                break
+
                 ctrl_trg_corr = et_trg_start - ctrl_trg_start
+                otr_sess_trg_corr = et_trg_start - otr_sess_trg_start
             ####################################################################
             
             if 'Eyelink' in file:
                 try:
                     if file.endswith('CONTROL'):
                         fname = glob.glob(op.join(file_loc, file.replace('CONTROL', '')))[0]
+                    elif file.endswith('OTHERSESSION'):
+                        fname = glob.glob(op.join(file_loc, file.replace('OTHERSESSION', '')))[0]
                     else:
                         fname = glob.glob(op.join(file_loc, file))[0]
                     complete_file = read_hdf5(fname)
                     fdata = complete_file['device_data']
                     mdata = complete_file['marker']
 
-                    # correcting raw timestamps from CTR machine for Control subject
+                    # correcting raw timestamps from CTR machine for Control subject or Other Sessions
                     if file.endswith('CONTROL'):
                         fdata['time_stamps'] = fdata['time_stamps'] + ctrl_trg_corr
                         mdata['time_stamps'] = mdata['time_stamps'] + ctrl_trg_corr
+                    if file.endswith('OTHERSESSION'):
+                        fdata['time_stamps'] = fdata['time_stamps'] + otr_sess_trg_corr
+                        mdata['time_stamps'] = mdata['time_stamps'] + otr_sess_trg_corr
                     ################################################################
 
                     len_df.at[0, 'Eyelink'] = len(fdata['time_series'])
@@ -615,7 +652,7 @@ def parse_files(task_files):
 
                     dt_corr = int(float(mdata['time_series'][0][0].split('_')[-1]) - mdata['time_stamps'][0]) # datetime-correction factor : time correction offset for correcting LSL time to local time
                     # correcting Control subject corrected CTR timestamps to Patient subject's local time
-                    if file.endswith('CONTROL'):
+                    if file.endswith('CONTROL') or file.endswith('OTHERSESSION'):
                         dt_corr = ctrl_dt_corr
                     #####################################################################################
                     et_datetime = et_df.timestamps.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
@@ -627,10 +664,29 @@ def parse_files(task_files):
                     # # target correction is subtracted because undersampling eyetracker leads to expanded time
                     # ##############################################################################################################
 
+                    r_gaze_x_trace_str = 'Right Eye Gaze X : fs = '
+                    r_gaze_y_trace_str = 'Right Eye Gaze Y'
+                    l_gaze_x_trace_str = 'Left Eye Gaze X'
+                    l_gaze_y_trace_str = 'Left Eye Gaze Y'
+
+                    if file.endswith('CONTROL'):
+                        subj_id_str = file.split('_')[0]
+                        r_gaze_x_trace_str = 'CONTROL: ' + subj_id_str + '<br>' + r_gaze_x_trace_str
+                        r_gaze_y_trace_str = 'CONTROL ' + r_gaze_y_trace_str
+                        l_gaze_x_trace_str = 'CONTROL ' + l_gaze_x_trace_str
+                        l_gaze_y_trace_str = 'CONTROL ' + l_gaze_y_trace_str
+
+                    if file.endswith('OTHERSESSION'):
+                        subj_id_str, _ = op.split(file)
+                        r_gaze_x_trace_str = subj_id_str +'<br>'+ r_gaze_x_trace_str
+                        r_gaze_y_trace_str = subj_id_str +'<br>'+ r_gaze_y_trace_str
+                        l_gaze_x_trace_str = subj_id_str +'<br>'+ l_gaze_x_trace_str
+                        l_gaze_y_trace_str = subj_id_str +'<br>'+ l_gaze_y_trace_str
+
                     trace1 = go.Scatter(
                                 x=et_datetime[::4],
                                 y=et_df['R_gaze_x'][::4],
-                                name='Right Eye Gaze X : fs = '+str(fs) if not file.endswith('CONTROL') else 'CONTROL Right Eye Gaze X : fs = '+str(fs),
+                                name = r_gaze_x_trace_str + str(fs),
                                 mode='lines'
                             )
                     timeseries_data.append(trace1)
@@ -639,7 +695,7 @@ def parse_files(task_files):
                     trace2 = go.Scatter(
                                 x=et_datetime[::4],
                                 y=et_df['R_gaze_y'][::4],
-                                name='Right Eye Gaze Y' if not file.endswith('CONTROL') else 'CONTROL Right Eye Gaze Y',
+                                name = r_gaze_y_trace_str,
                                 mode='lines'
                             )
                     timeseries_data.append(trace2)
@@ -648,7 +704,7 @@ def parse_files(task_files):
                     trace3 = go.Scatter(
                                 x=et_datetime[::4],
                                 y=et_df['L_gaze_x'][::4],
-                                name='Left Eye Gaze X' if not file.endswith('CONTROL') else 'CONTROL Left Eye Gaze X',
+                                name = l_gaze_x_trace_str,
                                 mode='lines',
                                 visible='legendonly',
                             )
@@ -658,7 +714,7 @@ def parse_files(task_files):
                     trace4 = go.Scatter(
                                 x=et_datetime[::4],
                                 y=et_df['L_gaze_y'][::4],
-                                name='Left Eye Gaze Y' if not file.endswith('CONTROL') else 'CONTROL Left Eye Gaze Y',
+                                name = l_gaze_y_trace_str,
                                 mode='lines',
                                 visible='legendonly',
                             )
@@ -1541,6 +1597,10 @@ def update_table(task_session_value, edit_plot_str):
             for trg_task in ['pursuit', 'saccades_horizontal', 'saccades_vertical', 'gaze_holding']:
                 if trg_task in task_str:
                     task_files = np.append(task_files, get_rnd_ctrl_et_hdf5('_'.join(tsv[3:]))+'CONTROL')
+                    # Looking for other sessions
+                    other_sessions_exist, other_session_file_list = check_for_other_sessions(tsv[0], tsv[1], '_'.join(tsv[3:]))
+                    if other_sessions_exist:
+                        task_files = np.append(task_files, other_session_file_list)
         else:
             task_files.append('No file found')
     except:
