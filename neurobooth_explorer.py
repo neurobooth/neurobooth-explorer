@@ -597,7 +597,10 @@ def parse_files(task_files):
                 for ctrl_file in task_files:
                     if ctrl_file.endswith('CONTROL'):
                         ctrl_file_loc = get_file_loc(ctrl_file.replace('CONTROL', ''))
-                        ctrl_data = read_hdf5(op.join(ctrl_file_loc, ctrl_file.replace('CONTROL', '')))
+                        try:
+                            ctrl_data = read_hdf5(op.join(ctrl_file_loc, ctrl_file.replace('CONTROL', '')))
+                        except:
+                            break
                         for ix, txt in enumerate(ctrl_data['marker']['time_series']):
                             if '!V TARGET_POS' in txt[0]:
                                 ctrl_trg_start = ctrl_data['marker']['time_stamps'][ix]
@@ -606,7 +609,10 @@ def parse_files(task_files):
                 for otr_sess_file in task_files:
                     if otr_sess_file.endswith('OTHERSESSION'):
                         otr_sess_file_loc = get_file_loc(otr_sess_file.replace('OTHERSESSION', ''))
-                        otr_sess_data = read_hdf5(op.join(otr_sess_file_loc, otr_sess_file.replace('OTHERSESSION', '')))
+                        try:
+                            otr_sess_data = read_hdf5(op.join(otr_sess_file_loc, otr_sess_file.replace('OTHERSESSION', '')))
+                        except:
+                            break
                         for ix, txt in enumerate(otr_sess_data['marker']['time_series']):
                             if '!V TARGET_POS' in txt[0]:
                                 otr_sess_trg_start = otr_sess_data['marker']['time_stamps'][ix]
@@ -1316,10 +1322,20 @@ app.layout = html.Div([
                                 * Selecting any of the Edit Plot radio buttons will re-render the plot automatically
                                 ''',style={'padding-left':'8%'}),
                                 dcc.Loading(id="loading-indicator", children=None, type="default", fullscreen=False),
+                                html.Div('---'),
                                 dcc.RadioItems(id='edit-plot-radio',
                                                 options=[{'label': 'Edit Plot', 'value': 'True'},
                                                         {'label': 'Non-editable Plot', 'value': 'False'},],
                                                 value='False'),
+                                html.Div('---'),
+                                dcc.RadioItems(id='select-mbient-sensor-radio',
+                                                options=[{'label': 'RH', 'value': 'RH'},
+                                                        {'label': 'LH', 'value': 'LH'},
+                                                        {'label': 'BK', 'value': 'BK'},
+                                                        {'label': 'RF', 'value': 'RF'},
+                                                        {'label': 'LF', 'value': 'LF'},],
+                                                value='RH'),
+                                html.Div('---'),
                                 dcc.Graph(id="timeseries_graph", config={'toImageButtonOptions': {'width': None,'height': None, 'format':'svg'}}),
                                 ]),
                         html.Hr(),
@@ -1586,11 +1602,17 @@ def update_table(task_session_value, edit_plot_str):
         else:
             task_str = '_'.join(tsv[3:-1])
         
+        
+        plot_title = tsv[0]+'_'+tsv[1]+'_'+task_str+' : Accelerometer, Gyroscope, Eye Tracker and Mouse Time Series'
+        
+                
         plot_title = tsv[0]+'_'+tsv[1]+'_'+task_str+' : Accelerometer, Gyroscope, Eye Tracker and Mouse Time Series'
         
         svg_prim_diag = ','.join(nb_data_df[nb_data_df['subject_id']==tsv[0]].primary_diagnosis.iloc[0])
         svg_prim_diag = svg_prim_diag.replace(' ','_')
         svg_filename = tsv[0]+'_'+tsv[1]+'_'+tsv[2]+'_'+task_str+'_'+svg_prim_diag
+
+        plot_title = tsv[0]+'_'+tsv[1]+' : '+task_str+' : '+svg_prim_diag
         
         # get hdf5 files which match subject_id, session_date, and task name
         task_files = nb_data_df[(nb_data_df['subject_id']==tsv[0]) & (nb_data_df['session_date']==datetime.strptime(tsv[1], "%Y-%m-%d").date()) & (nb_data_df['tasks']=='_'.join(tsv[3:]))].hdf5_files.tolist()
