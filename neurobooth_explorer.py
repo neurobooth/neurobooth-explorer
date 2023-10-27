@@ -543,7 +543,7 @@ def get_DSC_button_presses(dsc_filename, fig):
 
 
 # --- Function to parse task session files and return traces --- #
-def parse_files(task_files):
+def parse_files(task_files, mbient_sensors):
 
     timeseries_data=[]
     specgram_data=[]
@@ -1095,8 +1095,10 @@ def parse_files(task_files):
                     specgram_data.append(mic_audio_rand_trace)
                     specgram_data.append(vert_trace)
 
-            if 'Mbient_RH' in file:
+            if any(sensor in file for sensor in mbient_sensors):
                 try:
+                    sen_suffix = file.split('Mbient_')[-1][:2]
+                    
                     fname = glob.glob(op.join(file_loc, file))[0]
                     complete_file = read_hdf5(fname)
                     fdata = complete_file['device_data']
@@ -1115,7 +1117,7 @@ def parse_files(task_files):
                     trace8 = go.Scatter(
                                 x=imu_datetime,
                                 y=imu_df['acc_x'],
-                                name='Acceleration X : fs = '+str(fs),
+                                name=f'{sen_suffix}_Acceleration X : fs = {str(fs)}',
                                 mode='lines',
                                 visible='legendonly',
                                 yaxis="y2"
@@ -1125,7 +1127,7 @@ def parse_files(task_files):
                     trace9 = go.Scatter(
                                 x=imu_datetime,
                                 y=imu_df['acc_y'],
-                                name='Acceleration Y',
+                                name=f'{sen_suffix}_Acceleration Y',
                                 mode='lines',
                                 visible='legendonly',
                                 yaxis="y2"
@@ -1135,7 +1137,7 @@ def parse_files(task_files):
                     trace10 = go.Scatter(
                                 x=imu_datetime,
                                 y=imu_df['acc_z'],
-                                name='Acceleration Z',
+                                name=f'{sen_suffix}_Acceleration Z',
                                 mode='lines',
                                 visible='legendonly',
                                 yaxis="y2"
@@ -1145,7 +1147,7 @@ def parse_files(task_files):
                     trace11 = go.Scatter(
                                 x=imu_datetime,
                                 y=imu_df['gyr_x'],
-                                name='Gyroscope X',
+                                name=f'{sen_suffix}_Gyroscope X',
                                 mode='lines',
                                 visible='legendonly',
                                 yaxis="y2"
@@ -1155,7 +1157,7 @@ def parse_files(task_files):
                     trace12 = go.Scatter(
                                 x=imu_datetime,
                                 y=imu_df['gyr_y'],
-                                name='Gyroscope Y',
+                                name=f'{sen_suffix}_Gyroscope Y',
                                 mode='lines',
                                 visible='legendonly',
                                 yaxis="y2"
@@ -1165,7 +1167,7 @@ def parse_files(task_files):
                     trace13 = go.Scatter(
                                 x=imu_datetime,
                                 y=imu_df['gyr_z'],
-                                name='Gyroscope Z',
+                                name=f'{sen_suffix}_Gyroscope Z',
                                 mode='lines',
                                 visible='legendonly',
                                 yaxis="y2"
@@ -1328,13 +1330,13 @@ app.layout = html.Div([
                                                         {'label': 'Non-editable Plot', 'value': 'False'},],
                                                 value='False'),
                                 html.Div('---'),
-                                dcc.RadioItems(id='select-mbient-sensor-radio',
+                                dcc.Checklist(id='select-mbient-sensor-checkbox',
                                                 options=[{'label': 'RH', 'value': 'RH'},
                                                         {'label': 'LH', 'value': 'LH'},
                                                         {'label': 'BK', 'value': 'BK'},
                                                         {'label': 'RF', 'value': 'RF'},
                                                         {'label': 'LF', 'value': 'LF'},],
-                                                value='RH'),
+                                                value=['RH']),
                                 html.Div('---'),
                                 dcc.Graph(id="timeseries_graph", config={'toImageButtonOptions': {'width': None,'height': None, 'format':'svg'}}),
                                 ]),
@@ -1483,7 +1485,8 @@ app.layout = html.Div([
     #Output(component_id='file_list_dropdown', component_property='options'),
     #Output(component_id='file_list_dropdown', component_property='value'),
     Output(component_id='task_session_dropdown', component_property='options'),
-    Output(component_id='task_session_dropdown', component_property='value')],
+    Output(component_id='task_session_dropdown', component_property='value'),
+    Output(component_id='select-mbient-sensor-checkbox', component_property='value')],
     [Input("subject_id_dropdown", "value"),
     Input("session_date_dropdown", "value"),
     Input("task_dropdown", "value"),
@@ -1570,7 +1573,7 @@ def update_table(subid_value, date_value, task_value, clinical_value):
     task_session_val = session_files[0]
 
     #return data, columns, opts, val, task_session_opts, task_session_val
-    return bars_data, bars_columns, data, columns, task_session_opts, task_session_val
+    return bars_data, bars_columns, data, columns, task_session_opts, task_session_val, ['RH']
 
 
 @app.callback(
@@ -1583,8 +1586,9 @@ def update_table(subid_value, date_value, task_value, clinical_value):
     Output("file_length_datatable", "data"),
     Output("rc_notes_markdown", "children")],
     [Input("task_session_dropdown", "value"),
-    Input('edit-plot-radio', 'value')])
-def update_table(task_session_value, edit_plot_str):
+    Input('edit-plot-radio', 'value'),
+    Input('select-mbient-sensor-checkbox', 'value')])
+def update_table(task_session_value, edit_plot_str, mbient_sensor_checklist):
     if edit_plot_str=='False':
         edit_plot = False
     elif edit_plot_str=='True':
@@ -1593,6 +1597,10 @@ def update_table(task_session_value, edit_plot_str):
     if task_session_value=='Select task to view data':
         task_session_value=None
     
+    if len(mbient_sensor_checklist)==0:
+        mbient_sensor_checklist.append('RH')
+    mbient_sensors_to_plot = ['Mbient_'+sen_loc for sen_loc in mbient_sensor_checklist]
+
     task_files=[]
     try:
         tsv = task_session_value.split('_') # task session value split
@@ -1644,7 +1652,7 @@ def update_table(task_session_value, edit_plot_str):
     if task_session_value:
         rc_notes_markdown = read_rc_notes(task_session_value.split('_obs')[0])
 
-    timeseries_data, specgram_data, len_df = parse_files(task_files)
+    timeseries_data, specgram_data, len_df = parse_files(task_files, mbient_sensors_to_plot)
     length_data = len_df.to_dict('records')
 
     timeseries_layout = go.Layout(
