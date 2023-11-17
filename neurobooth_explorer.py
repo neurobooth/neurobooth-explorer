@@ -422,7 +422,7 @@ def get_task_session_files(fdf):
 # --- Function for getting start and end task times for movement tasks --- #
 def get_movement_task_start_end_times(mv_filename, fig):
     try:
-        if mv_filename.endswith('CONTROL'): # don't plot task start and end time for CONTROL trace
+        if mv_filename.endswith('CONTROL') or mv_filename.endswith('OTHERSESSION'): # don't plot task start and end time for CONTROL trace
             return fig
         file_loc = get_file_loc(mv_filename)
         fname = glob.glob(op.join(file_loc, mv_filename))[0]
@@ -606,7 +606,9 @@ def parse_files(task_files, mbient_sensors):
                                 ctrl_trg_start = ctrl_data['marker']['time_stamps'][ix]
                                 break
 
+                otr_sess_trg_start_dict = {}
                 for otr_sess_file in task_files:
+                    sess_ky, _ = op.split(otr_sess_file)
                     if otr_sess_file.endswith('OTHERSESSION'):
                         otr_sess_file_loc = get_file_loc(otr_sess_file.replace('OTHERSESSION', ''))
                         try:
@@ -615,11 +617,13 @@ def parse_files(task_files, mbient_sensors):
                             break
                         for ix, txt in enumerate(otr_sess_data['marker']['time_series']):
                             if '!V TARGET_POS' in txt[0]:
-                                otr_sess_trg_start = otr_sess_data['marker']['time_stamps'][ix]
+                                otr_sess_trg_start_dict[sess_ky] = otr_sess_data['marker']['time_stamps'][ix]
                                 break
 
                 ctrl_trg_corr = et_trg_start - ctrl_trg_start
-                otr_sess_trg_corr = et_trg_start - otr_sess_trg_start
+                otr_sess_trg_corr_dict = {}
+                for ky in otr_sess_trg_start_dict.keys():
+                    otr_sess_trg_corr_dict[ky] = et_trg_start - otr_sess_trg_start_dict[ky]
             ####################################################################
             
             if 'Eyelink' in file:
@@ -639,8 +643,9 @@ def parse_files(task_files, mbient_sensors):
                         fdata['time_stamps'] = fdata['time_stamps'] + ctrl_trg_corr
                         mdata['time_stamps'] = mdata['time_stamps'] + ctrl_trg_corr
                     if file.endswith('OTHERSESSION'):
-                        fdata['time_stamps'] = fdata['time_stamps'] + otr_sess_trg_corr
-                        mdata['time_stamps'] = mdata['time_stamps'] + otr_sess_trg_corr
+                        sess_ky, _ = op.split(file)
+                        fdata['time_stamps'] = fdata['time_stamps'] + otr_sess_trg_corr_dict[sess_ky]
+                        mdata['time_stamps'] = mdata['time_stamps'] + otr_sess_trg_corr_dict[sess_ky]
                     ################################################################
 
                     len_df.at[0, 'Eyelink'] = len(fdata['time_series'])
