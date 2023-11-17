@@ -1036,6 +1036,7 @@ def parse_files(task_files, mbient_sensors):
                                 mode='lines',
                                 opacity=0.5,
                                 visible='legendonly',
+                                showlegend=True,
                                 yaxis="y2"
                             )
                     timeseries_data.append(trace7)
@@ -1597,8 +1598,6 @@ def update_table(task_session_value, edit_plot_str, mbient_sensor_checklist):
     if task_session_value=='Select task to view data':
         task_session_value=None
     
-    if len(mbient_sensor_checklist)==0:
-        mbient_sensor_checklist.append('RH')
     mbient_sensors_to_plot = ['Mbient_'+sen_loc for sen_loc in mbient_sensor_checklist]
 
     task_files=[]
@@ -1682,6 +1681,7 @@ def update_table(task_session_value, edit_plot_str, mbient_sensor_checklist):
     
     timeseries_fig=go.Figure(data=timeseries_data, layout=timeseries_layout)
     timeseries_fig.update_layout(
+        yaxis=dict(autorange="reversed"),
         yaxis2=dict(
             anchor="x",
             overlaying="y",
