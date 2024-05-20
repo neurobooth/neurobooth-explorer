@@ -1614,12 +1614,6 @@ def update_table(task_session_value, edit_plot_str, mbient_sensor_checklist):
         else:
             task_str = '_'.join(tsv[3:-1])
         
-        
-        plot_title = tsv[0]+'_'+tsv[1]+'_'+task_str+' : Accelerometer, Gyroscope, Eye Tracker and Mouse Time Series'
-        
-                
-        plot_title = tsv[0]+'_'+tsv[1]+'_'+task_str+' : Accelerometer, Gyroscope, Eye Tracker and Mouse Time Series'
-        
         svg_prim_diag = ','.join(nb_data_df[nb_data_df['subject_id']==tsv[0]].primary_diagnosis.iloc[0])
         svg_prim_diag = svg_prim_diag.replace(' ','_')
         svg_filename = tsv[0]+'_'+tsv[1]+'_'+tsv[2]+'_'+task_str+'_'+svg_prim_diag
