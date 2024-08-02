@@ -124,7 +124,8 @@ file_locs = [
     "/space/drwho/3/neurobooth/data/",
     "/space/neo/3/neurobooth/data/",
     "/space/drwho/4/neurobooth/data/",
-    "/space/neo/5/neurobooth/data/"
+    "/space/neo/5/neurobooth/data/",
+    "/space/billnted/5/neurobooth/data/"
 ]
 # file_loc_odd = '/space/neo/3/neurobooth/data'
 # file_loc_even = '/local_mount/space/drwho/3/neurobooth/data'
