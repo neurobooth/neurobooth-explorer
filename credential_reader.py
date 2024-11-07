@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Union
 import os
 import yaml
 from pydantic import BaseModel, AnyUrl, PositiveInt, DirectoryPath, Field
@@ -9,7 +9,7 @@ class databaseArgs(BaseModel):
     db_name: str
     db_user: str
     password: str
-    host: str | IPvAnyAddress | AnyUrl
+    host: Union[str, IPvAnyAddress, AnyUrl]
     # this allows for values such as localhost or 127.0.0.1
     # or 192.168.xxx.xxx or <server_name>.nmr.mgh.harvard.edu
 
