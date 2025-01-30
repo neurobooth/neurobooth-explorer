@@ -29,6 +29,8 @@ from datetime import date
 
 from scipy import signal
 
+import credential_reader
+
 
 # ###########################################
 # ### Comment out section depending on os ###
@@ -117,18 +119,12 @@ from scipy import signal
 
 ### DrWho ###
 
-# --- ssh, db cred, variable assignment for Ubuntu on P620 Workstation --- #
+dataflow_args = credential_reader.read_dataflow_configs()
+file_locs = dataflow_args['suitable_volumes']
 
-### setting data file locations for DrWho ###
-file_locs = [
-    "/space/drwho/3/neurobooth/data/",
-    "/space/neo/3/neurobooth/data/",
-    "/space/drwho/4/neurobooth/data/",
-    "/space/neo/5/neurobooth/data/",
-    "/space/billnted/3/neurobooth/data/"
-]
-# file_loc_odd = '/space/neo/3/neurobooth/data'
-# file_loc_even = '/local_mount/space/drwho/3/neurobooth/data'
+ssh_args = credential_reader.get_ssh_args()
+db_args = credential_reader.read_db_secrets()
+
 face_landmark_filename = '/local_mount/space/drwho/3/neurobooth/applications/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
 auth_config_file_loc = '/homes/5/sp1022/.db_secrets/users.txt'
 db_config_file_loc = '/homes/5/sp1022/.db_secrets/db_secrets.txt'
@@ -144,20 +140,34 @@ for ky in auth_config[auth_config.sections()[0]]:
 config = configparser.ConfigParser()
 config.read(db_config_file_loc)
 
-# Setting db access args #
-ssh_args = dict(
-        ssh_address_or_host=config['linux']['ssh_address_or_host'],
-        ssh_username=config['linux']['ssh_username'],
-        ssh_pkey=config['linux']['ssh_pkey'],
-        remote_bind_address=(config['linux']['remote_bind_address'], int(config['linux']['remote_bind_address_port'])),
-        local_bind_address=(config['linux']['local_bind_address'], int(config['linux']['local_bind_address_port'])),
-        allow_agent=False
-)
+# # --- ssh, db cred, variable assignment for Ubuntu on P620 Workstation --- #
 
-db_args = dict(
-    database=config['linux']['database'], user=config['linux']['user'], password=config['linux']['password'],
-    # host='localhost'
-)
+# ### setting data file locations for DrWho ###
+# file_locs = [
+#     "/space/drwho/3/neurobooth/data/",
+#     "/space/neo/3/neurobooth/data/",
+#     "/space/drwho/4/neurobooth/data/",
+#     "/space/neo/5/neurobooth/data/",
+#     "/space/billnted/3/neurobooth/data/"
+# ]
+# # file_loc_odd = '/space/neo/3/neurobooth/data'
+# # file_loc_even = '/local_mount/space/drwho/3/neurobooth/data'
+
+
+# # Setting db access args #
+# ssh_args = dict(
+#         ssh_address_or_host=config['linux']['ssh_address_or_host'],
+#         ssh_username=config['linux']['ssh_username'],
+#         ssh_pkey=config['linux']['ssh_pkey'],
+#         remote_bind_address=(config['linux']['remote_bind_address'], int(config['linux']['remote_bind_address_port'])),
+#         local_bind_address=(config['linux']['local_bind_address'], int(config['linux']['local_bind_address_port'])),
+#         allow_agent=False
+# )
+
+# db_args = dict(
+#     database=config['linux']['database'], user=config['linux']['user'], password=config['linux']['password'],
+#     # host='localhost'
+# )
 
 
 # ### Control Machine ###
@@ -243,9 +253,7 @@ def rebuild_master_data_table(sql_query_cmd):
 
     # --- Querying Neurobooth Terra Database --- #
     with SSHTunnelForwarder(**ssh_args) as tunnel:
-        with psycopg2.connect(port=tunnel.local_bind_port,
-                            host=tunnel.local_bind_host,
-                            **db_args) as conn:
+        with psycopg2.connect(**db_args) as conn:
             nb_data_df = neurobooth_terra.query(conn,sql_query_cmd, ['subject_id', 'gender_at_birth', 'dob', 'session_datetime', 'session_id',
                                                                     'tasks', 'device_id', 'task_datetime', 'file_names', 'neurologist',
                                                                     'primary_diagnosis', 'other_primary_diagnosis', 'secondary_diagnosis',
@@ -341,9 +349,7 @@ def check_for_other_sessions(subj_id, current_session_date, task):
 # --- Function to get fresh copy of nex_annotations table from db --- #
 def refresh_nex_annotations():
     with SSHTunnelForwarder(**ssh_args) as tunnel:
-        with psycopg2.connect(port=tunnel.local_bind_port,
-                            host=tunnel.local_bind_host,
-                            **db_args) as conn:
+        with psycopg2.connect(**db_args) as conn:
             nex_annotations_df = neurobooth_terra.Table('nex_annotations', conn).query()
             nex_anno_cols = ['subject_id', 'session_datetime', 'task_id', 'annotation', 'annotator_name', 'annotation_source', 'annotation_submit_time']
             nex_annotations_df = nex_annotations_df[nex_anno_cols]
@@ -356,9 +362,7 @@ nex_annotations_df = refresh_nex_annotations()
 # --- Function to insert annotation into nex_annotation table in db --- #
 def insert_into_annotation_table(cols, vals):
     with SSHTunnelForwarder(**ssh_args) as tunnel:
-        with psycopg2.connect(port=tunnel.local_bind_port,
-                            host=tunnel.local_bind_host,
-                            **db_args) as conn:
+        with psycopg2.connect(**db_args) as conn:
             nex_anno_table = neurobooth_terra.Table('nex_annotations', conn)
             nex_anno_table.insert_rows(cols=cols, vals=vals, on_conflict='update')
     return None
