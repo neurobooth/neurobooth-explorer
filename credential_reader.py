@@ -1,6 +1,7 @@
 from typing import Optional, List, Union, Literal
 import os
 import yaml
+import socket
 from pydantic import BaseModel, AnyUrl, PositiveInt, DirectoryPath, Field
 from pydantic.networks import IPvAnyAddress
 
@@ -20,20 +21,12 @@ class dataflowArgs(BaseModel):
     delete_threshold: float = Field(ge=0, le=1)
 
 
-def get_terra_config_file_location() -> os.PathLike:
-    '''Reads an environment variable and returns location of terra config files'''
-    terra_config_file_location = os.environ.get('TERRA_CONFIG_LOC')
-    if terra_config_file_location is None:
-        raise Exception('got None when retreiving TERRA_CONFIG_LOC environment variable')
-    return terra_config_file_location
-
-
-def get_explorer_config_file_location() -> os.PathLike:
-    '''Reads an environment variable and returns location of explorer config files'''
-    explorer_config_file_location = os.environ.get('EXPLORER_CONFIG_LOC')
-    if explorer_config_file_location is None:
-        raise Exception('got None when retreiving EXPLORER_CONFIG_LOC environment variable')
-    return explorer_config_file_location
+def get_config_file_location(environment_variable_name: str) -> os.PathLike:
+    '''Reads an environment variable and returns location of corresponding config files'''
+    config_file_location = os.environ.get(environment_variable_name)
+    if config_file_location is None:
+        raise Exception(f'got None when retreiving {environment_variable_name} environment variable')
+    return config_file_location
 
 
 def validate_config_fpath(config_fpath: os.PathLike) -> None:
@@ -43,14 +36,23 @@ def validate_config_fpath(config_fpath: os.PathLike) -> None:
         raise Exception(f'config file at {config_fpath} does not exist')
 
 
-def get_config_file_path(config_file_name: str, config_file_type: Literal['TERRA', 'EXPLORER']) -> os.PathLike:
-    '''Returns full path to the config file'''
-    if config_file_type == 'TERRA':
-        config_file_location = get_terra_config_file_location()
-    elif config_file_type == 'EXPLORER':
-        config_file_location = get_explorer_config_file_location()
-    else:
-        raise('Could not get config file location')
+def get_config_file_path(config_file_name: str, config_type: Literal['TERRA', 'EXPLORER', 'USERPASS']) -> os.PathLike:
+    '''Returns validated config file path defined by environment variable
+    '''
+
+    # Dictionary to match confir_type string literal to
+    # the corresponding environment variable name
+    environ_dict = dict()
+    environ_dict['TERRA'] = 'TERRA_CONFIG_LOC'
+    environ_dict['EXPLORER'] = 'EXPLORER_CONFIG_LOC'
+    environ_dict['USERPASS'] = 'EXPLORER_USER_PASS'
+
+    env_var_name = environ_dict[config_type]
+    try:
+        config_file_location = get_config_file_location(env_var_name)
+    except Exception as e:
+        raise Exception(f'Could not get config file location from environment variable {env_var_name}')
+
     config_fpath = os.path.join(config_file_location, config_file_name)
     validate_config_fpath(config_fpath)
     return config_fpath
@@ -63,7 +65,7 @@ def load_yaml_file_into_dict(yaml_file_path):
 
 
 def read_db_secrets(config_fpath: Optional[str] = None):
-    """
+    '''
     Returns a dictionary of database credentials with keys:
     'database' for the name of the postgres database
     'user' for the pg username
@@ -73,15 +75,31 @@ def read_db_secrets(config_fpath: Optional[str] = None):
     The credential file is assumed to be at a location which
     is defined in the TERRA_CONFIG_LOC environment variable
 
-    """
+    '''
 
+    # First get config file path
     if config_fpath is None:
         config_file_name = '.db.secrets.yml'
         config_fpath = get_config_file_path(config_file_name, 'EXPLORER')
 
+    # Then load the config file
     db_config_dict = load_yaml_file_into_dict(config_fpath)
-    db_args = databaseArgs(**db_config_dict)
-    # this applies pydantic checks to validate config values
+
+    # Next get the name of server on which the script is being run
+    try:
+        hostname = socket.gethostname().split('.')[0]
+    except Exception as e:
+        raise Exception('Something went wrong in trying to get hostname')
+
+    if hostname not in db_config_dict.keys():
+        text = f'Hostname {hostname} does not match any key in config file {config_fpath}'
+        raise RuntimeError (text)
+    
+    # Now extract db args specific to host
+    host_specific_db_args = db_config_dict[hostname]
+
+    # Then apply pydantic validation to db args values
+    db_args = databaseArgs(**host_specific_db_args)
 
     credentials = {'database': db_args.db_name,
                    'user': db_args.db_user,
@@ -133,6 +151,19 @@ def get_ssh_args():
     return ssh_args
 
 
+def get_user_pass_pairs():
+    '''
+    Read username-password pairs from yml file
+    '''
+
+    config_file_name = '.explorer_user-passwords.yml'
+    config_fpath = get_config_file_path(config_file_name, 'USERPASS')
+    user_pass_dict = load_yaml_file_into_dict(config_fpath)
+
+    return user_pass_dict
+
+
+
 if __name__ == '__main__':
     '''Run this script standalone to test config reading or config value validation
        Pass config file paths as command line arguments'''
@@ -141,6 +172,7 @@ if __name__ == '__main__':
     db_args = read_db_secrets(config_fpath=sys.argv[1])
     dataflow_args = read_dataflow_configs(config_fpath=sys.argv[2])
     ssh_args = get_ssh_args()
+    user_pass_pairs = get_user_pass_pairs()
 
     print()
     for ky in db_args.keys():
@@ -151,4 +183,7 @@ if __name__ == '__main__':
     print()
     for ky in ssh_args.keys():
         print(ky, ssh_args[ky])
+    print()
+    for ky in user_pass_pairs.keys():
+        print(ky, user_pass_pairs[ky])
 
