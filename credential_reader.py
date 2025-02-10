@@ -1,4 +1,5 @@
 from typing import Optional, List, Union, Literal
+from enum import Enum
 import os
 import yaml
 import socket
@@ -6,6 +7,19 @@ from pydantic import BaseModel, AnyUrl, PositiveInt, DirectoryPath, Field
 from pydantic.networks import IPvAnyAddress
 
 
+# ------ config file names ------ #
+explorer_cfg_fname = '.db.secrets.yml'
+terra_cfg_fname = 'dataflow_config.yml'
+user_pass_fname = '.explorer_user-passwords.yml'
+
+# ------ enum aliases for Environment Variables ------ #
+class env_var(Enum):
+    TERRA = 'TERRA_CONFIG_LOC'
+    EXPLORER = 'EXPLORER_CONFIG_LOC'
+    USERPASS = 'EXPLORER_USER_PASS'
+
+
+# ------ config value pydantic specs ------ #
 class databaseArgs(BaseModel):
     db_name: str
     db_user: str
@@ -19,10 +33,13 @@ class dataflowArgs(BaseModel):
     reserve_threshold_bytes: PositiveInt
     suitable_volumes: List[DirectoryPath]
     delete_threshold: float = Field(ge=0, le=1)
+# ----------------------------------------- #
 
 
-def get_config_file_location(environment_variable_name: str) -> os.PathLike:
-    '''Reads an environment variable and returns location of corresponding config files'''
+def read_environment_variable(environment_variable_name: str) -> os.PathLike:
+    ''' Reads an environment variable
+        Environ vars store location of corresponding config files
+    '''
     config_file_location = os.environ.get(environment_variable_name)
     if config_file_location is None:
         raise Exception(f'got None when retreiving {environment_variable_name} environment variable')
@@ -30,26 +47,19 @@ def get_config_file_location(environment_variable_name: str) -> os.PathLike:
 
 
 def validate_config_fpath(config_fpath: os.PathLike) -> None:
-    '''validates that any path-to-file exists,
-        meant to ensure config file exists'''
+    ''' validates that any path-to-file exists,
+        meant to ensure config file exists
+    '''
     if not os.path.exists(config_fpath):
         raise Exception(f'config file at {config_fpath} does not exist')
 
 
-def get_config_file_path(config_file_name: str, config_type: Literal['TERRA', 'EXPLORER', 'USERPASS']) -> os.PathLike:
-    '''Returns validated config file path defined by environment variable
-    '''
+def get_config_file_path(config_file_name: str,
+                         env_var_name: str) -> os.PathLike:
+    '''Returns validated config file path defined by environment variable'''
 
-    # Dictionary to match confir_type string literal to
-    # the corresponding environment variable name
-    environ_dict = dict()
-    environ_dict['TERRA'] = 'TERRA_CONFIG_LOC'
-    environ_dict['EXPLORER'] = 'EXPLORER_CONFIG_LOC'
-    environ_dict['USERPASS'] = 'EXPLORER_USER_PASS'
-
-    env_var_name = environ_dict[config_type]
     try:
-        config_file_location = get_config_file_location(env_var_name)
+        config_file_location = read_environment_variable(env_var_name)
     except Exception as e:
         raise Exception(f'Could not get config file location from environment variable {env_var_name}')
 
@@ -65,22 +75,19 @@ def load_yaml_file_into_dict(yaml_file_path):
 
 
 def read_db_secrets(config_fpath: Optional[str] = None):
-    '''
-    Returns a dictionary of database credentials with keys:
-    'database' for the name of the postgres database
-    'user' for the pg username
-    'password' for the pg user password
-    'host' for database host
+    ''' Returns a dictionary of database credentials with keys:
+        'database' for the name of the postgres database
+        'user' for the pg username
+        'password' for the pg user password
+        'host' for database host
 
-    The credential file is assumed to be at a location which
-    is defined in the TERRA_CONFIG_LOC environment variable
-
+        The credential file is assumed to be at a location which
+        is defined in the EXPLORER_CONFIG_LOC environment variable
     '''
 
     # First get config file path
     if config_fpath is None:
-        config_file_name = '.db.secrets.yml'
-        config_fpath = get_config_file_path(config_file_name, 'EXPLORER')
+        config_fpath = get_config_file_path(explorer_cfg_fname, env_var.EXPLORER.value)
 
     # Then load the config file
     db_config_dict = load_yaml_file_into_dict(config_fpath)
@@ -109,17 +116,15 @@ def read_db_secrets(config_fpath: Optional[str] = None):
 
 
 def read_dataflow_configs(config_fpath: Optional[str] = None):
-    '''
-    Returns a dictionary of dataflow parameters with keys:
-    'reserve_threshold_bytes' 
-    'suitable_volumes' 
-    'delete_threshold'
-    See config yaml for context on these keys
+    ''' Returns a dictionary of dataflow parameters with keys:
+        'reserve_threshold_bytes' 
+        'suitable_volumes' 
+        'delete_threshold'
+        See config yaml for context on these keys
     '''
 
     if config_fpath is None:
-        config_file_name = 'dataflow_config.yml'
-        config_fpath = get_config_file_path(config_file_name, 'TERRA')
+        config_fpath = get_config_file_path(terra_cfg_fname, env_var.TERRA.value)
 
     dataflow_config_dict = load_yaml_file_into_dict(config_fpath)
     dataflow_args = dataflowArgs(**dataflow_config_dict)
@@ -138,9 +143,8 @@ def read_dataflow_configs(config_fpath: Optional[str] = None):
 
 
 def get_ssh_args():
-    '''
-    SSH arguments don't change, hence are hardcoded here and
-    returned as is
+    ''' SSH arguments don't change, hence are hardcoded here
+        and returned as is
     '''
     ssh_args = dict(
             ssh_address_or_host='neurodoor.nmr.mgh.harvard.edu',
@@ -152,12 +156,8 @@ def get_ssh_args():
 
 
 def get_user_pass_pairs():
-    '''
-    Read username-password pairs from yml file
-    '''
-
-    config_file_name = '.explorer_user-passwords.yml'
-    config_fpath = get_config_file_path(config_file_name, 'USERPASS')
+    '''Read username-password pairs from yml file''' 
+    config_fpath = get_config_file_path(user_pass_fname, env_var.USERPASS.value)
     user_pass_dict = load_yaml_file_into_dict(config_fpath)
 
     return user_pass_dict
@@ -165,12 +165,18 @@ def get_user_pass_pairs():
 
 
 if __name__ == '__main__':
-    '''Run this script standalone to test config reading or config value validation
-       Pass config file paths as command line arguments'''
+    ''' Run this script standalone to test config reading or config value validation
+        OPTIONAL: Pass config file paths as command line arguments
+    '''
     import sys
     
-    db_args = read_db_secrets(config_fpath=sys.argv[1])
-    dataflow_args = read_dataflow_configs(config_fpath=sys.argv[2])
+    if len(sys.argv)==3:
+        db_args = read_db_secrets(sys.argv[1])
+        dataflow_args = read_dataflow_configs(sys.argv[2])
+    else:
+        db_args = read_db_secrets()
+        dataflow_args = read_dataflow_configs()
+
     ssh_args = get_ssh_args()
     user_pass_pairs = get_user_pass_pairs()
 
