@@ -128,3 +128,14 @@ def rebuild_master_data_table(sql_query_cmd):
             clinical_list.append(i)
 
     return nb_data_df, bars_df, sub_id_list, session_date_list, task_list, clinical_list
+
+
+if __name__ == '__main__':
+
+    import time
+
+    t0 = time.time()
+    nb_data_df, bars_df, sub_id_list, session_date_list, task_list, clinical_list = rebuild_master_data_table(sql_query_cmd)
+    t1 = time.time()
+    print(f'Took {t1-t0:.3f} seconds to rebuild data table')
+
