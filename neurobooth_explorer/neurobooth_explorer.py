@@ -28,8 +28,8 @@ from datetime import datetime
 
 from scipy import signal
 
-import neurobooth_explorer.credential_reader as credential_reader
-from neurobooth_explorer.data_table import rebuild_master_data_table, sql_query_cmd
+import credential_reader
+from data_table import rebuild_master_data_table, sql_query_cmd
 
 
 # ==== Read Credentials ==== #
