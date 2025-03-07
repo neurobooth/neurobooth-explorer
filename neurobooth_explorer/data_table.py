@@ -138,4 +138,6 @@ if __name__ == '__main__':
     nb_data_df, bars_df, sub_id_list, session_date_list, task_list, clinical_list = rebuild_master_data_table(sql_query_cmd)
     t1 = time.time()
     print(f'Took {t1-t0:.3f} seconds to rebuild data table')
+    print(nb_data_df.shape)
+    print(bars_df.shape)
 
