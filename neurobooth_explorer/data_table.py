@@ -71,7 +71,7 @@ def rebuild_master_data_table(sql_query_cmd):
 
     # query for bars scores
     bars_qry='''
-    SELECT subject_id, end_time_ataxia_pd_scales, bars_total_score, bars_gait, bars_heel_shin_left, bars_heel_shin_right, bars_finger_nose_left,
+    SELECT subject_id, end_time_ataxia_pd_scales, bars_total, bars_gait, bars_heel_shin_left, bars_heel_shin_right, bars_finger_nose_left,
     bars_finger_nose_right, bars_speech, bars_oculomotor from rc_ataxia_pd_scales
     '''
 
