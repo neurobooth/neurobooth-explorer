@@ -71,7 +71,7 @@ def rebuild_master_data_table(sql_query_cmd):
 
     # query for bars scores
     bars_qry='''
-    SELECT subject_id, end_time_ataxia_pd_scales, bars_total_score, bars_gait, bars_heel_shin_left, bars_heel_shin_right, bars_finger_nose_left,
+    SELECT subject_id, end_time_ataxia_pd_scales, bars_total, bars_gait, bars_heel_shin_left, bars_heel_shin_right, bars_finger_nose_left,
     bars_finger_nose_right, bars_speech, bars_oculomotor from rc_ataxia_pd_scales
     '''
 
@@ -128,3 +128,16 @@ def rebuild_master_data_table(sql_query_cmd):
             clinical_list.append(i)
 
     return nb_data_df, bars_df, sub_id_list, session_date_list, task_list, clinical_list
+
+
+if __name__ == '__main__':
+
+    import time
+
+    t0 = time.time()
+    nb_data_df, bars_df, sub_id_list, session_date_list, task_list, clinical_list = rebuild_master_data_table(sql_query_cmd)
+    t1 = time.time()
+    print(f'Took {t1-t0:.3f} seconds to rebuild data table')
+    print(nb_data_df.shape)
+    print(bars_df.shape)
+
