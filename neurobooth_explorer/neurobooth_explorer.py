@@ -41,7 +41,7 @@ db_args = credential_reader.read_db_secrets()
 
 USERNAME_PASSWORD_PAIRS = credential_reader.get_user_pass_pairs()
 
-face_landmark_filename = '/local_mount/space/drwho/3/neurobooth/applications/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
+face_landmark_filename = '/space/drwho/3/neurobooth/applications/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
 # ========================== #
 
 
