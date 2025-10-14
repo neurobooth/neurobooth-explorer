@@ -41,7 +41,7 @@ db_args = credential_reader.read_db_secrets()
 
 USERNAME_PASSWORD_PAIRS = credential_reader.get_user_pass_pairs()
 
-face_landmark_filename = '/local_mount/space/drwho/3/neurobooth/applications/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
+face_landmark_filename = '/space/drwho/3/neurobooth/applications/neurobooth-explorer/facial_landmark_file/100001_2022-02-28_08h-55m-00s_passage_obs_1_R001-FLIR_blackfly_1-FLIR_rgb_1_face_landmarks.hdf5'
 # ========================== #
 
 
@@ -1444,12 +1444,20 @@ def update_table(task_session_value, edit_plot_str, mbient_sensor_checklist):
             if (movement_task in filename) & ('Mbient_RH' in filename):
                 timeseries_fig = get_movement_task_start_end_times(filename, timeseries_fig)
 
-    for ocular_task in ['pursuit', 'fixation_no_target', 'gaze_holding', 'saccades_horizontal', 'saccades_vertical', 'DSC', 'hevelius', 'passage']:
+    for stance_task in ['sitting',
+                        'feet_apart_eyes_open', 'feet_apart_eyes_closed', 'feet_together_eyes_open', 'feet_together_eyes_closed',
+                        'tandem_stance', 'stance_dominant_foot',
+                        'tandem_walk', 'walking']:
+        for filename in task_files:
+            if (stance_task in filename) & ('Mbient_RH' in filename):
+                timeseries_fig = get_movement_task_start_end_times(filename, timeseries_fig)
+
+    for ocular_task in ['pursuit', 'fixation_no_target', 'gaze_holding', 'saccades_horizontal', 'saccades_vertical', 'DSC', 'hevelius', 'passage', 'picture_description']:
         for filename in task_files:
             if (ocular_task in filename) & ('Eye' in filename):
                 timeseries_fig = get_movement_task_start_end_times(filename, timeseries_fig)
 
-    for vocal_task in ['ahh', 'gogogo', 'lalala', 'mememe', 'pataka', 'passage']:
+    for vocal_task in ['ahh', 'gogogo', 'lalala', 'mememe', 'pataka']:
         for filename in task_files:
             if (vocal_task in filename) & ('Mic' in filename):
                 timeseries_fig = get_movement_task_start_end_times(filename, timeseries_fig)
