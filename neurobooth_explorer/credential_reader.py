@@ -181,7 +181,6 @@ if __name__ == '__main__':
         db_args = read_db_secrets()
         dataflow_args = read_dataflow_configs()
 
-    # ssh_args = get_ssh_args()
     user_pass_pairs = get_user_pass_pairs()
 
     print()
