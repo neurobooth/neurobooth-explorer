@@ -36,8 +36,7 @@ from data_table import rebuild_master_data_table, sql_query_cmd
 dataflow_args = credential_reader.read_dataflow_configs()
 file_locs = dataflow_args['suitable_volumes']
 
-ssh_args = credential_reader.get_ssh_args()
-db_args = credential_reader.read_db_secrets()
+db_args, ssh_args = credential_reader.read_db_secrets()
 
 USERNAME_PASSWORD_PAIRS = credential_reader.get_user_pass_pairs()
 
