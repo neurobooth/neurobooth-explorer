@@ -11,8 +11,7 @@ import credential_reader
 
 
 # ==== Read Credentials ==== #
-ssh_args = credential_reader.get_ssh_args()
-db_args = credential_reader.read_db_secrets()
+db_args, ssh_args = credential_reader.read_db_secrets()
 
 
 # --- Function to compute age from date of birth --- #
