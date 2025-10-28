@@ -8,13 +8,12 @@ from pydantic.networks import IPvAnyAddress
 
 
 # ------ config file names ------ #
-explorer_cfg_fname = '.db.secrets.yml'
-terra_cfg_fname = 'dataflow_config.yml'
+secrets_cfg_fname = '.db.secrets.yml'
+dataflow_cfg_fname = 'dataflow_config.yml'
 user_pass_fname = '.explorer_user-passwords.yml'
 
 # ------ enum aliases for Environment Variables ------ #
 class env_var(Enum):
-    TERRA = 'TERRA_CONFIG_LOC'
     EXPLORER = 'EXPLORER_CONFIG_LOC'
     USERPASS = 'EXPLORER_USER_PASS'
 
@@ -76,7 +75,7 @@ def get_config_file_path(config_file_name: str,
     except Exception as e:
         raise Exception(f'Could not get config file location from environment variable {env_var_name}')
     
-    config_environment = os.path.join('environments', get_server_hostname())
+    config_environment = get_server_hostname()
     config_file_location = os.path.join(config_file_location, config_environment)
     config_fpath = os.path.join(config_file_location, config_file_name)
     validate_config_fpath(config_fpath)
@@ -108,7 +107,7 @@ def read_db_secrets(config_fpath: Optional[str] = None):
 
     # First get config file path
     if config_fpath is None:
-        config_fpath = get_config_file_path(explorer_cfg_fname, env_var.EXPLORER.value)
+        config_fpath = get_config_file_path(secrets_cfg_fname, env_var.EXPLORER.value)
 
     # Then load the config file
     db_config_dict = load_yaml_file_into_dict(config_fpath)
@@ -138,7 +137,7 @@ def read_dataflow_configs(config_fpath: Optional[str] = None):
     '''
 
     if config_fpath is None:
-        config_fpath = get_config_file_path(terra_cfg_fname, env_var.TERRA.value)
+        config_fpath = get_config_file_path(dataflow_cfg_fname, env_var.EXPLORER.value)
 
     dataflow_config_dict = load_yaml_file_into_dict(config_fpath)
     dataflow_args = dataflowArgs(**dataflow_config_dict)
