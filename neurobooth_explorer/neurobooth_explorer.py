@@ -198,6 +198,180 @@ def get_movement_task_start_end_times(mv_filename, fig):
     
     return fig
 
+#######################################################
+# FUNCTIONS FOR FIXATION/SACCADE LABELS
+
+# Helper to convert color name to rgba string
+def color_to_rgba(color_name, alpha=1.0):
+    c_dict = {}
+    c_dict['red'] = [255,0,0]
+    c_dict['green'] = [0,255,0]
+    c_dict['blue'] = [0,0,255]
+
+    r, g, b = c_dict[color_name] #[int(x*255) for x in mcolors.to_rgb(color_name)]
+    return f"rgba({r},{g},{b},{alpha})"
+
+def add_color_legend(fig, color_map):
+    """
+    Add dummy scatter traces to create a color legend.
+    color_map: dict like {'Fixation': 'green', 'Saccade': 'red', 'Blink': 'blue'}
+    """
+    for label, color in color_map.items():
+        fig.add_trace(
+            go.Scatter(
+                x=[None], y=[None],  # invisible
+                mode='markers',
+                marker=dict(size=10, color=color, opacity=0.5),
+                name=label,
+                showlegend=True
+            )
+        )
+    return fig
+
+
+def add_event_lines(fig, gaze_x, gaze_y, event_flag, pixel_padding=1, color='green', event_name=None):
+    """
+    Add horizontal thick lines for event segments.
+    Separate legend entries for GazeX and GazeY using legendgroup.
+    """
+    event_segments = []
+    start_idx = None
+
+    for i, flag in enumerate(event_flag):
+        if flag and start_idx is None:
+            start_idx = i
+        elif not flag and start_idx is not None:
+            event_segments.append((start_idx, i-1))
+            start_idx = None
+    if start_idx is not None:
+        event_segments.append((start_idx, len(event_flag)-1))
+
+    for i, (start, end) in enumerate(event_segments):
+        # Y-axis line
+        y0, y1 = min(gaze_y[start:end+1]) - pixel_padding, max(gaze_y[start:end+1]) + pixel_padding
+        y_center = (y0 + y1) / 2
+        width = abs(y1 - y0)
+        fig.add_trace(
+            go.Scatter(
+                x=[start, end],
+                y=[y_center, y_center],
+                mode='lines',
+                line=dict(color=color_to_rgba(color, 0.5), width=width),
+                name=f"{event_name}_GazeY",
+                legendgroup=f"{event_name}_GazeY",  # link all Y traces for this event
+                showlegend=(i==0)
+            )
+        )
+
+        # X-axis line
+        x0, x1 = min(gaze_x[start:end+1]) - pixel_padding, max(gaze_x[start:end+1]) + pixel_padding
+        x_center = (x0 + x1) / 2
+        width_x = abs(x1 - x0)
+        fig.add_trace(
+            go.Scatter(
+                x=[start, end],
+                y=[x_center, x_center],
+                mode='lines',
+                line=dict(color=color_to_rgba(color, 0.5), width=width_x),
+                name=f"{event_name}_GazeX",
+                legendgroup=f"{event_name}_GazeX",  # link all X traces for this event
+                showlegend=(i==0)
+            )
+        )
+
+    return fig
+
+
+
+def process_hdf_file(hfile, fig):
+
+    for eye in ['_R', '_L']:
+
+        hfile = hfile.replace('s.hdf5',f'{eye}.hdf5')
+
+        try:
+            file_loc = get_file_loc(hfile)
+            hfile = glob.glob(op.join(file_loc, hfile))[0]
+        except:
+            print('file not found at location:', file_loc, 'filename :', hfile)
+            return fig
+
+        # if not hfile.endswith('_events_eyes.hdf5'):
+        #     raise ValueError(f"Unexpected file name: {hfile} (expected suffix '_events_eyes.hdf5')")
+
+        df = read_hdf5(hfile)[f'eye{eye}']
+        gaze_x = df['GazeX'].values
+        gaze_y = df['GazeY'].values
+        fixation_flag = df['Flag_Fixation'].values
+        saccade_flag = df['Flag_Saccade'].values
+        blink_flag = df['Flag_Blink'].values
+
+        # Add event lines
+        fig = add_event_lines(fig, gaze_x, gaze_y, fixation_flag, color='green', event_name=f'{eye}_Fixation')
+        fig = add_event_lines(fig, gaze_x, gaze_y, saccade_flag, color='red', event_name=f'{eye}_Saccade')
+        fig = add_event_lines(fig, gaze_x, gaze_y, blink_flag, color='blue', event_name=f'{eye}_Blink')
+
+    return fig
+
+#######################################################
+
+
+
+#######################################################
+
+def visualise_word_segments_plotly(path_wordseg: str, fig, start_time: int) -> None:
+    """
+    This method visualises the predicted word segments
+    Args:
+        path_wav (str): path to the wav file
+    Returns:
+    """
+
+    try:
+        file_loc = get_file_loc(path_wordseg)
+        path_wordseg = glob.glob(op.join(file_loc, path_wordseg))[0]
+    except:
+        print('file not found at location:', file_loc, 'filename :', path_wordseg)
+        return fig
+    df = read_hdf5(path_wordseg) # pd.read_hdf(path_wordseg)
+    # time = np.linspace(0, len(waveform), num=len(waveform))
+
+    TRANSCRIPT = df['transcript']
+    print(TRANSCRIPT)
+    list_word_start_times = df['list_word_start_times']
+    list_word_end_times = df['list_word_end_times']
+    list_pause_start_times = df['list_pause_start_times']
+    list_pause_end_times = df['list_pause_end_times']
+
+    for index, word in enumerate(TRANSCRIPT.split(' ')):
+
+        # if index < 70:
+        #     continue
+        if index == 10:
+            break
+
+        word_start_time = list_word_start_times[index]
+        word_end_time = list_word_end_times[index]
+        # if index < len(list_pause_start_times):
+        #     pause_start_time = list_pause_start_times[index]
+        #     pause_end_time = list_pause_end_times[index]
+        word_loc = int((word_start_time + word_end_time)/2)
+        fig.add_vline(x=datetime.fromtimestamp(word_start_time/16000 + start_time + 0.9), line_color='lightgreen')
+        fig.add_vline(x=datetime.fromtimestamp(word_end_time/16000 + start_time + 0.9), line_color='lightcoral')
+        fig.add_annotation(
+            x=datetime.fromtimestamp(word_loc/16000 + start_time + 0.9),  # X-coordinate for the text
+            y=0,  # Y-coordinate for the text
+            text=word,  # The text content
+            showarrow=False,  # Set to True to display an arrow pointing to the x,y coordinates
+            # You can also customize font, color, etc.
+            font=dict(
+                family="Arial",
+                size=20,
+                color="red"
+            )
+        )
+    return fig
+#######################################################
 
 # --- Function to get button presses for DSC task --- #
 def get_DSC_button_presses(dsc_filename, fig):
@@ -292,6 +466,7 @@ def parse_files(task_files, mbient_sensors):
     timeseries_data=[]
     specgram_data=[]
     len_df = generate_empty_file_len_df()
+    audio_start_time = 0
 
     if len(task_files)==0 or len(task_files)==1:
         ts_rand_trace = go.Scatter(
@@ -318,7 +493,7 @@ def parse_files(task_files, mbient_sensors):
         specgram_data.append(audio_rand_trace)
         specgram_data.append(vert_trace)
 
-        return timeseries_data, specgram_data, len_df
+        return timeseries_data, specgram_data, len_df, audio_start_time
     
     else:
 
@@ -777,6 +952,7 @@ def parse_files(task_files, mbient_sensors):
                     audio_df = audio_df.iloc[::100,:]
 
                     audio_datetime = audio_df.timestamps.apply(lambda x: datetime.fromtimestamp(dt_corr+x))
+                    audio_start_time = audio_df.timestamps.iloc[0] + dt_corr
 
                     trace7 = go.Scatter(
                                 x=audio_datetime,
@@ -933,7 +1109,7 @@ def parse_files(task_files, mbient_sensors):
                     timeseries_data.append(imu_rand_trace)
         
         print(len(timeseries_data),len(specgram_data))
-        return timeseries_data, specgram_data, len_df
+        return timeseries_data, specgram_data, len_df, audio_start_time
 
 
 # --- Function to read RC Notes --- #
@@ -1394,7 +1570,7 @@ def update_table(task_session_value, edit_plot_str, mbient_sensor_checklist):
     if task_session_value:
         rc_notes_markdown = read_rc_notes(task_session_value.split('_obs')[0])
 
-    timeseries_data, specgram_data, len_df = parse_files(task_files, mbient_sensors_to_plot)
+    timeseries_data, specgram_data, len_df, audio_start_time = parse_files(task_files, mbient_sensors_to_plot)
     length_data = len_df.to_dict('records')
 
     timeseries_layout = go.Layout(
@@ -1455,6 +1631,18 @@ def update_table(task_session_value, edit_plot_str, mbient_sensor_checklist):
         for filename in task_files:
             if (ocular_task in filename) & ('Eye' in filename):
                 timeseries_fig = get_movement_task_start_end_times(filename, timeseries_fig)
+
+    # for event_task in ['DSC', 'passage', 'picture_description']:
+    #     for filename in task_files:
+    #         if (event_task in filename) & ('Eye' in filename):
+    #             events_filename = filename.replace('_R001-Eyelink_1-Eyelink_sens_1.hdf5', '_events_eyes.hdf5')
+    #             timeseries_fig = process_hdf_file(events_filename, timeseries_fig)
+
+    for transcript_task in ['passage', 'picture_description']:
+        for filename in task_files:
+            if (transcript_task in filename) & ('Mic' in filename):
+                wav_filename = filename.replace('.hdf5', '_word_segmentation.hdf')
+                timeseries_fig = visualise_word_segments_plotly(wav_filename, timeseries_fig, audio_start_time)
 
     for vocal_task in ['ahh', 'gogogo', 'lalala', 'mememe', 'pataka']:
         for filename in task_files:
