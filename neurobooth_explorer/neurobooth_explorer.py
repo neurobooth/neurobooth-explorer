@@ -344,10 +344,15 @@ def visualise_word_segments_plotly(path_wordseg: str, fig, start_time: int) -> N
     list_pause_end_times = df['list_pause_end_times']
 
     for index, word in enumerate(TRANSCRIPT.split(' ')):
+        if word == 'tone':
+            start_ix = index
+            break
 
-        # if index < 70:
-        #     continue
-        if index == 10:
+    for index, word in enumerate(TRANSCRIPT.split(' ')):
+
+        if index < start_ix:
+            continue
+        if index == 90:
             break
 
         word_start_time = list_word_start_times[index]
@@ -356,10 +361,10 @@ def visualise_word_segments_plotly(path_wordseg: str, fig, start_time: int) -> N
         #     pause_start_time = list_pause_start_times[index]
         #     pause_end_time = list_pause_end_times[index]
         word_loc = int((word_start_time + word_end_time)/2)
-        fig.add_vline(x=datetime.fromtimestamp(word_start_time/16000 + start_time + 0.9), line_color='lightgreen')
-        fig.add_vline(x=datetime.fromtimestamp(word_end_time/16000 + start_time + 0.9), line_color='lightcoral')
+        fig.add_vline(x=datetime.fromtimestamp(word_start_time/16000 + start_time), line_color='lightgreen')
+        fig.add_vline(x=datetime.fromtimestamp(word_end_time/16000 + start_time), line_color='lightcoral')
         fig.add_annotation(
-            x=datetime.fromtimestamp(word_loc/16000 + start_time + 0.9),  # X-coordinate for the text
+            x=datetime.fromtimestamp(word_loc/16000 + start_time),  # X-coordinate for the text
             y=0,  # Y-coordinate for the text
             text=word,  # The text content
             showarrow=False,  # Set to True to display an arrow pointing to the x,y coordinates
