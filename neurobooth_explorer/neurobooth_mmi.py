@@ -60,7 +60,7 @@ app = dash.Dash(__name__)
 auth = dash_auth.BasicAuth(app, USERNAME_PASSWORD_PAIRS)
 
 app.layout = html.Div([
-                        html.H1('! Neuro - BLING !', style={'textAlign':'center'}),
+                        html.H1('Neuroflix', style={'textAlign':'center'}),
                         html.H4('Multi Modal Integration of neurobooth data for insight and discovery', style={'textAlign':'center'}),
                         html.Hr(),
                         html.Div([
@@ -339,5 +339,5 @@ def update_audio_video_src(session_files, session_id):
 
 if __name__ == '__main__':
     context = ('/usr/etc/certs/server.crt', '/usr/etc/certs/server.key')
-    app.run_server(host='0.0.0.0', port='8050', debug=True, ssl_context=context)
+    app.run_server(host='0.0.0.0', port='8501', debug=True, ssl_context=context)
 
