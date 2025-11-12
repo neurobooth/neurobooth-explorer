@@ -247,6 +247,22 @@ def add_event_lines(fig, gaze_x, gaze_y, event_flag, pixel_padding=1, color='gre
         event_segments.append((start_idx, len(event_flag)-1))
 
     for i, (start, end) in enumerate(event_segments):
+        
+        # X-axis line
+        x0, x1 = min(gaze_x[start:end+1]) - pixel_padding, max(gaze_x[start:end+1]) + pixel_padding
+        x_center = (x0 + x1) / 2
+        width_x = abs(x1 - x0)
+        fig.add_trace(
+            go.Scatter(
+                x=[start, end],
+                y=[x_center, x_center],
+                mode='lines',
+                line=dict(color=color_to_rgba(color, 0.5), width=width_x),
+                name=f"{event_name}_GazeX",
+                legendgroup=f"{event_name}_GazeX",  # link all X traces for this event
+                showlegend=(i==0)
+            )
+        )
         # Y-axis line
         y0, y1 = min(gaze_y[start:end+1]) - pixel_padding, max(gaze_y[start:end+1]) + pixel_padding
         y_center = (y0 + y1) / 2
@@ -263,48 +279,32 @@ def add_event_lines(fig, gaze_x, gaze_y, event_flag, pixel_padding=1, color='gre
             )
         )
 
-        # X-axis line
-        x0, x1 = min(gaze_x[start:end+1]) - pixel_padding, max(gaze_x[start:end+1]) + pixel_padding
-        x_center = (x0 + x1) / 2
-        width_x = abs(x1 - x0)
-        fig.add_trace(
-            go.Scatter(
-                x=[start, end],
-                y=[x_center, x_center],
-                mode='lines',
-                line=dict(color=color_to_rgba(color, 0.5), width=width_x),
-                name=f"{event_name}_GazeX",
-                legendgroup=f"{event_name}_GazeX",  # link all X traces for this event
-                showlegend=(i==0)
-            )
-        )
-
     return fig
 
 
 
 def process_hdf_file(hfile, fig):
 
-    for eye in ['_R', '_L']:
+    try:
+        file_loc = get_file_loc(hfile)
+        hfile = glob.glob(op.join(file_loc, hfile))[0]
+    except:
+        print('file not found at location:', file_loc, 'filename :', hfile)
+        return fig
+    
+# --- Read the HDF5 file using h5io ---
+    data = read_hdf5(hfile)  # returns a dict of datasets
 
-        hfile = hfile.replace('s.hdf5',f'{eye}.hdf5')
+    for eye in ['eye_R', 'eye_L']:
+        if eye not in data:
+            continue
 
-        try:
-            file_loc = get_file_loc(hfile)
-            hfile = glob.glob(op.join(file_loc, hfile))[0]
-        except:
-            print('file not found at location:', file_loc, 'filename :', hfile)
-            return fig
-
-        # if not hfile.endswith('_events_eyes.hdf5'):
-        #     raise ValueError(f"Unexpected file name: {hfile} (expected suffix '_events_eyes.hdf5')")
-
-        df = read_hdf5(hfile)[f'eye{eye}']
-        gaze_x = df['GazeX'].values
-        gaze_y = df['GazeY'].values
-        fixation_flag = df['Flag_Fixation'].values
-        saccade_flag = df['Flag_Saccade'].values
-        blink_flag = df['Flag_Blink'].values
+        eye_data = data[eye]
+        gaze_x = eye_data['GazeX']
+        gaze_y = eye_data['GazeY']
+        fixation_flag = [bool(f) for f in eye_data['Flag_Fixation']]
+        saccade_flag = [bool(f) for f in eye_data['Flag_Saccade']]
+        blink_flag = [bool(f) for f in eye_data['Flag_Blink']]
 
         # Add event lines
         fig = add_event_lines(fig, gaze_x, gaze_y, fixation_flag, color='green', event_name=f'{eye}_Fixation')
@@ -1637,17 +1637,17 @@ def update_table(task_session_value, edit_plot_str, mbient_sensor_checklist):
             if (ocular_task in filename) & ('Eye' in filename):
                 timeseries_fig = get_movement_task_start_end_times(filename, timeseries_fig)
 
-    # for event_task in ['DSC', 'passage', 'picture_description']:
-    #     for filename in task_files:
-    #         if (event_task in filename) & ('Eye' in filename):
-    #             events_filename = filename.replace('_R001-Eyelink_1-Eyelink_sens_1.hdf5', '_events_eyes.hdf5')
-    #             timeseries_fig = process_hdf_file(events_filename, timeseries_fig)
-
-    for transcript_task in ['passage', 'picture_description']:
+    for event_task in ['DSC', 'passage', 'picture_description']:
         for filename in task_files:
-            if (transcript_task in filename) & ('Mic' in filename):
-                wav_filename = filename.replace('.hdf5', '_word_segmentation.hdf')
-                timeseries_fig = visualise_word_segments_plotly(wav_filename, timeseries_fig, audio_start_time)
+            if (event_task in filename) & ('Eye' in filename):
+                events_filename = filename.replace('_R001-Eyelink_1-Eyelink_sens_1.hdf5', '_events_eyes.hdf5')
+                timeseries_fig = process_hdf_file(events_filename, timeseries_fig)
+
+    # for transcript_task in ['passage', 'picture_description']:
+    #     for filename in task_files:
+    #         if (transcript_task in filename) & ('Mic' in filename):
+    #             wav_filename = filename.replace('.hdf5', '_word_segmentation.hdf')
+    #             timeseries_fig = visualise_word_segments_plotly(wav_filename, timeseries_fig, audio_start_time)
 
     for vocal_task in ['ahh', 'gogogo', 'lalala', 'mememe', 'pataka']:
         for filename in task_files:
