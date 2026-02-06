@@ -147,19 +147,21 @@ def get_file_loc(filename):
     #     file_loc = file_loc_even
     # return file_loc
 
-# --- Function to extract task session file list from datafarme --- #
+# --- Function to extract task session file list from dataframe --- #
 def get_task_session_files(fdf):
-    sl = fdf.subject_id.tolist() #subject list
-    dtl=[] #datetime list
-    for i in fdf.session_datetime:
-        j = str(i[0]).replace(' ','_')
-        j = j.replace(':','-')
-        j = j[:13]+'h'+j[13:16]+'m'+j[16:]+'s'
-        dtl.append(j)
-    tl = fdf.tasks.tolist() #task list
-    fnl=[] #filename list
-    for i in range(len(sl)):
-        fnl.append(sl[i]+'_'+dtl[i]+'_'+tl[i])
+    hdf5_files = fdf.hdf5_files.tolist()
+    tasks = fdf.tasks.tolist()
+
+    fnl = [] #filename list
+    if not len(hdf5_files):
+        return fnl
+
+    for file, task in zip(hdf5_files, tasks):
+        tail = op.split(file)[-1]
+        tsv = '_'.join(tail.split('_')[:3]) # subj-id_date_time
+        tsv = tsv + '_' + task
+        fnl.append(tsv)
+
     return list(set(fnl))
 
 
