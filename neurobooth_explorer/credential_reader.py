@@ -33,9 +33,7 @@ class databaseArgs(BaseModel):
 
 
 class dataflowArgs(BaseModel):
-    reserve_threshold_bytes: PositiveInt
     suitable_volumes: List[DirectoryPath]
-    delete_threshold: float = Field(ge=0, le=1)
 # ----------------------------------------- #
 
 
@@ -130,9 +128,7 @@ def read_db_secrets(config_fpath: Optional[str] = None):
 
 def read_dataflow_configs(config_fpath: Optional[str] = None):
     ''' Returns a dictionary of dataflow parameters with keys:
-        'reserve_threshold_bytes' 
         'suitable_volumes' 
-        'delete_threshold'
         See config yaml for context on these keys
     '''
 
@@ -143,9 +139,7 @@ def read_dataflow_configs(config_fpath: Optional[str] = None):
     dataflow_args = dataflowArgs(**dataflow_config_dict)
     # this validates dataflow config values
 
-    dataflow_configs = {'reserve_threshold_bytes': dataflow_args.reserve_threshold_bytes,
-                        'suitable_volumes': dataflow_args.suitable_volumes,
-                        'delete_threshold': dataflow_args.delete_threshold}
+    dataflow_configs = {'suitable_volumes': dataflow_args.suitable_volumes}
     
     # check that all volumes in suitable volumes are actually suitable
     for volume in dataflow_configs['suitable_volumes']:
